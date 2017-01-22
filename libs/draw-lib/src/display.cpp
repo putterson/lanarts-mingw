@@ -74,11 +74,11 @@ static void gl_sdl_initialize(const char* window_name, int w, int h, bool fullsc
 		exit(1);
 	}
 
-        /* To get SDL_Texture support, we need to setup a renderer, which
-           will take care of setting up OpenGL. Ideally we should check
-           SDL_GetRenderDriverInfo() for name "opengl*", to avoid a
-           software or d3d renderer.  We can't use our own context. */
-        MAIN_RENDERER = SDL_CreateRenderer(MAIN_WINDOW, -1, SDL_RENDERER_ACCELERATED);
+    /* To get SDL_Texture support, we need to setup a renderer, which
+       will take care of setting up OpenGL. Ideally we should check
+       SDL_GetRenderDriverInfo() for name "opengl*", to avoid a
+       software or d3d renderer.  We can't use our own context. */
+    MAIN_RENDERER = SDL_CreateRenderer(MAIN_WINDOW, -1, SDL_RENDERER_ACCELERATED);
 
 	glDisable(GL_TEXTURE_2D);
 
@@ -90,13 +90,7 @@ static void gl_sdl_initialize(const char* window_name, int w, int h, bool fullsc
 }
 
 static void gl_set_fullscreen(bool fullscreen) {
-    Uint32 flags = SDL_GetWindowFlags(MAIN_WINDOW); 
-    if (fullscreen) {
-        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-    } else {
-        flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
-    }
-    SDL_SetWindowFullscreen(MAIN_WINDOW, flags);
+    SDL_SetWindowFullscreen(MAIN_WINDOW, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
 }
 
 void ldraw::display_initialize(const char* window_name,

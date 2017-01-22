@@ -16,7 +16,7 @@ set(OGG_SOURCES "${OGG_SRC}")
 
 include_directories("${OGG_SOURCE_DIR}/include")
 
-add_library(OGG SHARED
+add_library(OGG STATIC
 	${OGG_SOURCES}
 )
 

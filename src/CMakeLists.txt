@@ -10,6 +10,12 @@ set( BUILTDEPS ${CMAKE_BINARY_DIR}/dependencies )
 
 add_definitions( -std=c++11 -Wno-deprecated-declarations)
 
+if (${USE_BACKTRACE})
+    set( BACKTRACE_LIBRARIES bfd )
+else()
+    set( BACKTRACE_LIBRARIES )
+endif()
+
 if (${USE_LUAJIT})
     set( lua_includes ${DEPS}/luajit/src )
 else()
@@ -72,7 +78,10 @@ file(GLOB lanarts_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     net/*
 
     objects/*
+    objects/enemy/*
     objects/loaddata/*
+    objects/player/*
+    objects/store/*
 
     pathfind/*
 
@@ -92,15 +101,11 @@ file(GLOB lanarts_tests RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_executable( lanarts ${lanarts_src} ${lanarts_tests})
-CHECK_INCLUDE_FILE( bfd.h HAS_BFD ) 
-if ( HAS_BFD) 
-    set( BACKTRADE_DEP bfd ) 
-else()
-    set( BACKTRADE_DEP "" ) 
-endif()
+
 
 set (libraries 
-#        mingw32
+        luayaml
+   mingw32
 	ldraw
 	lcommon
         lua_box2d
@@ -114,26 +119,64 @@ set (libraries
 	lanarts_net
         lpeg
         enet
-        lua_enet
-#        ws2_32
-#        mingw32
-#        winmm
+        ws2_32
+        mingw32
+        winmm
 	RVO
         #physfs-static
         libxmi
 	${OPENGL_gl_LIBRARY}
 	${FREETYPE_LIBRARIES}
         UnitTest++
-        SDL2-image
-        SDL2-mixer
         SDL2-static
-#        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_mixer.dll.a
-#        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_image.dll.a
-#        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2.dll.a
+        SDL2-image
+        SDL2-static
+        #SDL2-mixer
+                /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_mixer.dll.a
+        #        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_image.dll.a
+        #        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2.dll.a
         backward_object
+        SDL2-static
         ${BACKTRADE_DEP}
+	yaml-cpp
+        luayaml
+   mingw32
+	ldraw
+	lcommon
+        lua_box2d
+	lanarts_dungeon_gen
+	lsound
+	${lua_libraries}
+	luasocket
+	yaml-cpp
+        lua_enet
+        luayaml
+	luawrap
+	lanarts_net
+        lpeg
+        enet
+        ws2_32
+        mingw32
+        winmm
+	RVO
+        #physfs-static
+        libxmi
+	${OPENGL_gl_LIBRARY}
+	${FREETYPE_LIBRARIES}
+        UnitTest++
+        SDL2-static
+        SDL2-image
+        SDL2-static
+        #SDL2-mixer
+                /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_mixer.dll.a
+        #        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_image.dll.a
+        #        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2.dll.a
+        backward_object
+        SDL2-static
+        ${BACKTRADE_DEP}
+	yaml-cpp
+        luayaml
 )
-
 target_link_libraries( lanarts 
     ${libraries}
 )

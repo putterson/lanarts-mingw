@@ -42,7 +42,6 @@ add_library( ldraw
 
          message(STATUS ${SDL2_LIBRARY})
 set(LINKEDDEPS
-	ldraw
 	luawrap
 	lcommon
 	lua
@@ -55,8 +54,9 @@ set(LINKEDDEPS
 add_executable( ldraw_ex ${ldraw_examples} )
 add_executable( ldraw_tests ${ldraw_tests} )
 
-target_link_libraries( ldraw_ex ${LINKEDDEPS} )
-target_link_libraries( ldraw_tests ${LINKEDDEPS} UnitTest++ )
+target_link_libraries( ldraw ${LINKEDDEPS} )
+target_link_libraries( ldraw_ex ldraw ${LINKEDDEPS} )
+target_link_libraries( ldraw_tests ldraw ${LINKEDDEPS} UnitTest++ )
 
 enable_testing()
 add_test(NAME ldraw_tests COMMAND ${EXECUTABLE_OUTPUT_PATH}/ldraw_tests )

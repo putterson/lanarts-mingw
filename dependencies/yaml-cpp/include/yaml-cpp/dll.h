@@ -16,10 +16,12 @@
 #ifdef YAML_CPP_DLL // Using or Building YAML-CPP DLL (definition defined manually)
 	#ifdef yaml_cpp_EXPORTS // Building YAML-CPP DLL (definition created by CMake or defined manually)
 	//	#pragma message( "Defining YAML_CPP_API for DLL export" )
-		#define YAML_CPP_API __declspec(dllexport)
+//		#define YAML_CPP_API __declspec(dllexport)
+                #define YAML_CPP_API 
 	#else // yaml_cpp_EXPORTS
 	//	#pragma message( "Defining YAML_CPP_API for DLL import" )
-		#define YAML_CPP_API __declspec(dllimport)
+//		#define YAML_CPP_API __declspec(dllimport)
+                #define YAML_CPP_API 
 	#endif // yaml_cpp_EXPORTS
 #else //YAML_CPP_DLL
 #define YAML_CPP_API

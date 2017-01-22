@@ -2,7 +2,7 @@
 	lib/vorbisfile.c
 )
 
-add_library(VORBIS_FILE SHARED
+add_library(VORBIS_FILE STATIC
 	${VORBIS_FILE_SRC}
 )
 

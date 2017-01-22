@@ -223,7 +223,7 @@ set(_INSTALL_DESTINATIONS
 ###
 ### Library
 ###
-add_library(yaml-cpp
+add_library(yaml-cpp STATIC
 	${sources}
 	${public_headers}
 	${private_headers}

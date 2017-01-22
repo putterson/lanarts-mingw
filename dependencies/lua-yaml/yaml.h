@@ -30,9 +30,11 @@ extern "C" {
 #   if defined(YAML_DECLARE_STATIC)
 #       define  YAML_DECLARE(type)  type
 #   elif defined(YAML_DECLARE_EXPORT)
-#       define  YAML_DECLARE(type)  __declspec(dllexport) type
+//#       define  YAML_DECLARE(type)  __declspec(dllexport) type
+#       define  YAML_DECLARE(type)  
 #   else
-#       define  YAML_DECLARE(type)  __declspec(dllimport) type
+//#       define  YAML_DECLARE(type)  __declspec(dllimport) type
+#       define  YAML_DECLARE(type)  
 #   endif
 #else
 #   define  YAML_DECLARE(type)  type

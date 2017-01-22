@@ -22,7 +22,7 @@
     lib/window.c
 )
 
-add_library(VORBIS SHARED
+add_library(VORBIS STATIC
 	${VORBIS_SRC}
 )
 

@@ -10,6 +10,7 @@ ADD_DEFINITIONS (
 INCLUDE_DIRECTORIES(../sdl2/include)
 ADD_LIBRARY (
     SDL2-image
+    STATIC
 
     IMG.c
     IMG_bmp.c
