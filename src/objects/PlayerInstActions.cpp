@@ -229,8 +229,11 @@ Pos PlayerInst::direction_towards_unexplored(GameState* gs) {
         }
     }
     if (LAST_WAS_STOP) {
-        dx = gs->rng().rand(Range {-1, +1});
-        dy = gs->rng().rand(Range {-1, +1});
+        dx = rand() % 3 - 1;
+        dy = rand() % 3 - 1;
+        // FIXED SYNC BUG: Do not use rng().rand() here.
+        // dx = gs->rng().rand(Range {-1, +1});
+        // dy = gs->rng().rand(Range {-1, +1});
     } else if (gs->object_radius_test(this, NULL, 0, &autopickup_colfilter)) {
         dx = 0, dy = 0;
     } else if (min_dist != 10000) {//std::numeric_limits<float>::max()) {
@@ -444,9 +447,9 @@ void PlayerInst::pickup_item(GameState* gs, const GameAction& action) {
                 // Do nothing, as commanded by Lua
         } else if (type.id == get_item_by_name("Gold")) {
 		gold(gs) += amnt;
-                if (gs->local_player() == this) {
+                //if (gs->local_player() == this) {
                     play("sound/gold.ogg");
-                }
+                //}
 	} else {
 		itemslot_t slot = inventory().add(type);
 		if (slot == -1) {
@@ -455,9 +458,9 @@ void PlayerInst::pickup_item(GameState* gs, const GameAction& action) {
 				this->last_chosen_weaponclass)) {
 			projectile_smart_equip(inventory(), slot);
 		}
-                if (gs->local_player() == this) {
+                //if (gs->local_player() == this) {
                     play("sound/item.ogg");
-                }
+                //}
 	}
 
 	if (!inventory_full) {
@@ -516,6 +519,7 @@ void PlayerInst::purchase_from_store(GameState* gs, const GameAction& action) {
 		inventory().add(slot.item);
 		gold(gs) -= slot.cost;
 		slot.item.clear();
+                play("sound/inventory_sound_effects/sellbuy.ogg");
 	}
 }
 
@@ -679,7 +683,7 @@ void PlayerInst::sell_item(GameState* gs, const GameAction& action) {
             auto message = format("Transaction: %s x %d for %d GP.", type.name.c_str(), sell_amount, gold_gained);
             item.remove_copies(sell_amount);
             gs->game_chat().add_message(message, COL_PALE_YELLOW);
-            gs->local_player()->gold(gs) += gold_gained;
+            gold(gs) += gold_gained;
             play("sound/inventory_sound_effects/sellbuy.ogg");
         } else {
             gs->game_chat().add_message("Cannot sell this item!", COL_RED);

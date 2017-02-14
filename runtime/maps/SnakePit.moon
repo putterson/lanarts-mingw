@@ -69,7 +69,7 @@ snake_pit_floor_plans = (rng) ->
                 {enemy: "Black Mamba", guaranteed_spawns: 2, chance: 25}
                 {enemy: "Mouther", guaranteed_spawns: 3}
             }
-            item_groups: {{ItemGroups.basic_items, 8}}
+            item_groups: {{ItemGroups.basic_items, 8}, {{item: "Scroll of Experience", chance: 100}, 1}}
             number_regions: 2
             room_radius: () -> 7
             rect_room_num_range: {0, 0}
@@ -119,7 +119,7 @@ M.TEMPLATE  = (rng, floor, connector) ->
                 if floor == M.N_FLOORS and n_items_placed == 0
                     item = {type: "Azurite Key", amount: 1}
                 else
-                    item = ItemUtils.item_generate ItemGroups.enchanted_items, false, 1 --Randart power level
+                    item = ItemUtils.randart_generate(1) -- Power level 1 
                 MapUtils.spawn_item(map, item.type, item.amount, xy)
                 n_items_placed += 1
             return config

@@ -98,10 +98,10 @@ Data.class_create {
     gain_per_level = {
         hp = 15,
         mp = 20,
-        hpregen = 0.5 / 60, -- Per 60 frames
+        hpregen = 0, -- 0.5 / 60, -- Per 60 frames
         mpregen = 0.65 / 60, -- Per 60 frames
         magic = 1,
-        strength = 1,
+  --    strength = 1,
   --      defence = 1,
         willpower = 1
     }
@@ -137,12 +137,12 @@ Data.class_create {
     gain_per_level = {
         hp = 25,
         mp = 10,
-        hpregen = 0.65 / 60, -- Per 60 frames
-        mpregen = 0.5 / 60, -- Per 60 frames
+        hpregen = 0,--0.65 / 60, -- Per 60 frames
+        mpregen = 0.65 / 60, -- Per 60 frames
  --       magic = 1,
         strength = 1,
         defence = 1,
-        willpower = 1
+ --     willpower = 1
     }
 }
 
@@ -165,9 +165,9 @@ Data.class_create {
         mp = 85,
         hpregen = 4 / 60, -- Per 60 frames
         mpregen = 2 / 60, -- Per 60 frames
-        strength = 4,
+        strength = 7,
         defence = 4,
-        willpower = 7,
+        willpower = 4,
         magic = 7,
         equipment = {
           weapon = "Short Bow",
@@ -186,7 +186,7 @@ Data.class_create {
         magic = 1,
         strength = 1,
 --        defence = 1,
-        willpower = 1
+--        willpower = 1
     }
 }
 
@@ -212,7 +212,7 @@ Data.class_create {
     start_stats = {
         movespeed = 4,
         hp = 100,
-        mp = 80,
+        mp = 45,
         hpregen = 2 / 60, -- Per 60 frames
         mpregen = 0 / 60, -- Per 60 frames
         strength = 0,
@@ -229,11 +229,10 @@ Data.class_create {
     },
     gain_per_level = {
         hp = 10,
-        mp = 20,
+        mp = 5,
         hpregen = 0.5 / 60, -- Per 60 frames
         mpregen = 0 / 60, -- Per 60 frames
         magic = 1,
-        defence = 1,
         willpower = 1
     }
 }
