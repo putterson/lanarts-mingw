@@ -106,6 +106,13 @@ function M.run_loop()
     if require("tests.main").testcase then
         require("tests.main").testcase:game_start()
     end
+    if argv_configuration.load_file then -- Global from GlobalVariableSetup.lua
+        if file_exists(argv_configuration.load_file) then
+            GameState.load(argv_configuration.load_file)
+        else
+            error("'" .. argv_configuration.load_file .. "' does not exist!")
+        end
+    end
 
     -- ROBUSTNESS
     -- Since when a game restarts, an input_handle is called during game_loop_body after step(),
@@ -135,7 +142,7 @@ function M.run_loop()
         if not game_loop_body(steponly) then
             if single_player then
                 GameState.score_board_store()
-                GameState.save("saves/savefile.save")
+                GameState.save(argv_configuration.save_file or "saves/savefile.save")
             end
             break
         end
@@ -154,6 +161,10 @@ function M.run_loop()
 
     print( "Step time: " .. string.format("%f", perf.get_timing("**Step**")) )
     print( "Draw time: " .. string.format("%f", perf.get_timing("**Draw**")) )
+
+    if argv_configuration.load_file then
+        os.exit()
+    end
 end
 
 return M

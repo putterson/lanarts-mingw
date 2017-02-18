@@ -147,7 +147,7 @@ local function respawn_toggle_create()
         local x,y = unpack(xy)
         local w, h = unpack(self.size)
 
-        local text = settings.regen_on_death and "Respawn on Death" or "Hardcore (No respawn!)"
+        local text = settings.regen_on_death and "Revive on Death" or "Hardcore (No respawn!)"
         local text_color = settings.regen_on_death and TEXT_COLOR or COL_LIGHT_RED
         local sprite_color = settings.regen_on_death and TEXT_COLOR or COL_LIGHT_RED
         local box_color = sprite_color
@@ -202,6 +202,23 @@ local function frame_action_repeat_toggle_create()
     
 end
 
+local function speed_description(time_per_step)
+    local text = "Slow"
+
+    if time_per_step <= 6 then
+        text = "Insane 2"
+    elseif time_per_step <= 8 then
+        text = "Insane 1"
+    elseif time_per_step <= 10 then
+        text = "Very Fast"
+    elseif time_per_step <= 13 then
+        text = "Fast"
+    elseif time_per_step <= 16 then
+        text = "Normal"
+    end
+    return text
+end
+
 local function speed_toggle_create()
     local toggle = { 
         size = SETTINGS_BOX_SIZE,
@@ -212,8 +229,12 @@ local function speed_toggle_create()
     function toggle:step(xy)
         -- Toggle the connection type
         if Mouse.mouse_left_pressed and mouse_over(xy, self.size) then
-            settings.time_per_step = settings.time_per_step - 3
-            if settings.time_per_step < 10 then
+            if settings.time_per_step <= 10 then
+                settings.time_per_step = settings.time_per_step - 2
+            else
+                settings.time_per_step = settings.time_per_step - 3
+            end
+            if settings.time_per_step < 4 then
                 settings.time_per_step = 19
             end
         end

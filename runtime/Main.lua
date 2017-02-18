@@ -90,6 +90,9 @@ local function main(_argv)
         while not finished do __read_eval_print() end
     end
 
+    argv_configuration.save_file = (has_arg "--save" and get_param "--save")
+    argv_configuration.load_file = (has_arg "--load" and get_param "--load")
+
     return start_lanarts()
 end
 
