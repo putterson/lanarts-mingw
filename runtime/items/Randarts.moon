@@ -81,14 +81,24 @@ add_random_effect = (rng, data) ->
     if data.effects_granted
         return -- For now, dont have double effects.
     data.effects_granted or= {}
-    {effect, description} = rng\random_choice {
-        {"VampiricWeapon", "You gain the power to steal life with your melee blows."}
-        {"ConfusingWeapon", "You gain the power to daze foes in melee."}
-        {"PoisonedWeapon", "You gain the power to poison foes in melee."}
-        {"PossiblySummonStormElementalOnKill", "You gain the power to summon storm elementals as you kill things."}
-        {"PossiblySummonGolemOnKill", "You gain the power to summon golems as you kill things."}
-        {"PossiblySummonCentaurOnKill", "You gain the power to summon centaurs as you kill things."}
-    }
+    local effect, description
+    if rng\randomf() < 0.01 
+        {effect, description} = {"Fortification", "Fortification: You gain defence as enemies hit you in melee."}
+    elseif rng\randomf() < 0.05 
+        {effect, description} = {"Spiky", "Spiky: You damage back enemies who hit you in melee."}
+    elseif rng\randomf() < 0.05 
+        {effect, description} = {"PossiblySummonCentaurOnKill", "Centaur Blessing: You gain the power to summon centaurs as you kill things."}
+    elseif rng\randomf() < 0.05 
+        {effect, description} = {"PossiblySummonGolemOnKill", "Golem Blessing: You gain the power to summon golems as you kill things."}
+    elseif rng\randomf() < 0.1
+        {effect, description} = {"PossiblySummonStormElementalOnKill", "Elemental Blessing: You gain the power to summon storm elementals as you kill things."}
+    else 
+        {effect, description} = rng\random_choice {
+            {"VampiricWeapon", "Weapon Vampirism: You gain the power to steal life with your melee blows."}
+            {"ConfusingWeapon", "Weapon Befuddlement: You gain the power to daze foes in melee."}
+            {"PoisonedWeapon", "Weapon Poison: You gain the power to poison foes in melee."}
+            {"KnockbackWeapon", "Weapon Knockback: You gain the power to knock back foes in melee."}
+        }
     data.description ..= " #{description}"
     append data.effects_granted, effect
 
@@ -174,9 +184,9 @@ add_buff = (rng, data, major = false) ->
             effect_chance, misc_buff_chance = 0.7, 0.4
         else
             effect_chance, misc_buff_chance = 0.1, 0.5
-    if rng\randomf() < 0.5 and not data.effects_granted
+    if rng\randomf() < effect_chance and not data.effects_granted
         add_random_effect(rng, data)
-    elseif rng\randomf() < 0.9
+    elseif rng\randomf() < misc_buff_chance
         buff = rng\random_choice {
             mult_stat_bonus("spell_velocity_multiplier", {1.10, 1.25})
             additive_stat_bonus("mp", {10, 25})
@@ -225,6 +235,9 @@ MINOR_DEBUFFS = {
     mult_core_bonus("ranged_cooldown_multiplier", {1.1, 1.2})
 }
 
+randart_pickup = (item, user) ->
+    play_sound "sound/randart.ogg"
+
 NAMES_USED = {}
 -- Define a single randart:
 define_randart = (rng, base, images, enchanter) ->
@@ -246,16 +259,17 @@ define_randart = (rng, base, images, enchanter) ->
     -- Make sure we don't see this as a randart-derivable item:
     data.randart_sprites = nil
     data.randart_weight = 0
+    data.pickup_func = randart_pickup
     data.stat_bonuses or= {}
     n_enchants = power_level * 2
     while n_enchants > 0 
-        if rng\random(4) == 0
-            add_buff(rng, data, true) -- Major
-            n_enchants -= 1
-        elseif rng\random(4) == 0
-            add_buff(rng, data, true) -- Major
-            rng\random_choice(MINOR_DEBUFFS)(rng, data)
-        elseif rng\random(8) == 0
+        --if rng\random(4) == 0
+        --    add_buff(rng, data, true) -- Major
+        --    n_enchants -= 1
+        --if rng\random(4) == 0
+        --    add_buff(rng, data, true) -- Major
+        --    rng\random_choice(MINOR_DEBUFFS)(rng, data)
+        if rng\random(8) == 0
             add_buff(rng, data, false) -- Minor
             rng\random_choice(MINOR_DEBUFFS)(rng, data)
             n_enchants += 1
@@ -278,26 +292,26 @@ apply_enchantment = (rng, data, power_level) ->
     if enchantment > 0
         data.name = "+#{enchantment} #{data.name}"
         if data.cooldown
-            for i=1,enchantment,4
-                additive_core_bonus("damage", {1, 1})(rng, data)
+            --for i=1,enchantment,4
+            --    additive_core_bonus("damage", {1, 1})(rng, data)
             additive_core_bonus("power", {enchantment, enchantment})(rng, data)
-            data["resist_modifier"] or= 1
-            data["resist_modifier"] /= 1 + 0.05 * enchantment
+            --data["resist_modifier"] or= 1
+            --data["resist_modifier"] /= 1 + 0.05 * enchantment
         elseif rng\randomf() < 0.5
-            for i=1,enchantment,4
-                additive_core_bonus("magic_reduction", {1, 1})(rng, data)
+            --for i=1,enchantment,4
+            --    additive_core_bonus("magic_reduction", {1, 1})(rng, data)
             additive_core_bonus("magic_resistance", {enchantment, enchantment})(rng, data)
         else
+            --for i=1,enchantment,4
+            --    additive_core_bonus("reduction", {1, 1})(rng, data)
             additive_core_bonus("resistance", {enchantment, enchantment})(rng, data)
         for i=1,2
-            for i=1,enchantment,4
-                additive_core_bonus("magic_reduction", {1, 1})(rng, data)
             data.shop_cost[i] += math.floor((enchantment ^ 1.5) * 50)
 
 -- Define several randart amulets:
 define_amulet_randarts = (rng) ->
     images = get_resource_names("spr_amulets.randarts")
-    for i=1,50
+    for i=1,100
         base = {
             name: "Amulet"
             type: "amulet"
@@ -308,7 +322,7 @@ define_amulet_randarts = (rng) ->
 -- Define several randart rings:
 define_ring_randarts = (rng) ->
     images = get_resource_names("spr_rings.randarts")
-    for i=1,100 * 2
+    for i=1,100 * 4
         base = {
             name: "Ring"
             type: "ring"
@@ -319,7 +333,7 @@ define_ring_randarts = (rng) ->
 -- Define several randart belts:
 define_belt_randarts = (rng) ->
     images = get_resource_names("spr_belts.randarts")
-    for i=1,50
+    for i=1,100
         base = {
             name: "Belt"
             type: "belt"
@@ -330,7 +344,7 @@ define_belt_randarts = (rng) ->
 -- Define several randart legwear:
 define_legwear_randarts = (rng) ->
     images = get_resource_names("spr_legwear.randarts")
-    for i=1,50
+    for i=1,100
         base = {
             name: "Pants"
             type: "legwear"
@@ -384,7 +398,7 @@ define_equipment_randarts = (rng) ->
         if item.randart_sprites ~= nil and item.cooldown == nil
             append candidates, item
     for item in *candidates
-        for i=1,(item.randart_weight or 20) * 2
+        for i=1,(item.randart_weight or 20) * 4
             Data.equipment_create(define_randart(rng, item, item.randart_sprites, apply_enchantment))
 
 define_weapon_randarts = () ->
@@ -404,7 +418,7 @@ define_weapon_randarts = () ->
         if item.randart_sprites ~= nil and item.cooldown ~= nil
             append candidates, item
     for item in *candidates
-        for i=1,(item.randart_weight or 20) * 2
+        for i=1,(item.randart_weight or 20) * 4
             template = define_randart(rng, item, item.randart_sprites, apply_enchantment)
             Data.weapon_create(template)
 

@@ -1,10 +1,12 @@
 EventLog = require "ui.EventLog"
 GameObject = require "core.GameObject"
 Map = require "core.Map"
+World = require "core.World"
 Bresenham = require "core.Bresenham"
 Display = require "core.Display"
 SpellObjects = require "objects.SpellObjects"
 
+INFINITE_DURATION = 2^30 -- For all intents and purposes
 mon_title = (mon) -> if mon.unique then mon.name else "the #{mon.name}"
 
 Data.spell_create {
@@ -167,60 +169,60 @@ for equip_slot in *{"", "Amulet", "Ring", "Belt", "Weapon", "Legwear"}
                 @kill_tracker += 1
     }
 
-    Data.effect_create {
-        name: "PossiblySummonCentaurOnKill"
-        category: "EquipEffect"
-        init_func: (caster) =>
-            @kill_tracker = caster.kills
-        step_func: (caster) =>
-            while caster.kills > @kill_tracker
-                if chance(0.05)
-                    EventLog.add("A creature is summoned due to your graceful killing!!", COL_PALE_BLUE)
-                    play_sound "sound/summon.ogg"
-                    monster = "Centaur Hunter"
-                    if not (caster\has_effect "Summoning")
-                        eff = caster\add_effect("Summoning", 20)
-                        eff.monster = (if type(monster) == "string" then monster else random_choice(monster))
-                        eff.duration = 5
-                @kill_tracker += 1
-    }
+Data.effect_create {
+    name: "PossiblySummonCentaurOnKill"
+    category: "EquipEffect"
+    init_func: (caster) =>
+        @kill_tracker = caster.kills
+    step_func: (caster) =>
+        while caster.kills > @kill_tracker
+            if chance(0.03)
+                EventLog.add("A creature is summoned due to your graceful killing!!", COL_PALE_BLUE)
+                play_sound "sound/summon.ogg"
+                monster = "Centaur Hunter"
+                if not (caster\has_effect "Summoning")
+                    eff = caster\add_effect("Summoning", 20)
+                    eff.monster = (if type(monster) == "string" then monster else random_choice(monster))
+                    eff.duration = 5
+            @kill_tracker += 1
+}
 
-    Data.effect_create {
-        name: "PossiblySummonStormElementalOnKill"
-        category: "EquipEffect"
-        init_func: (caster) =>
-            @kill_tracker = caster.kills
-        step_func: (caster) =>
-            while caster.kills > @kill_tracker
-                if chance(0.05)
-                    EventLog.add("A creature is summoned due to your graceful killing!!", COL_PALE_BLUE)
-                    play_sound "sound/summon.ogg"
-                    monster = "Storm Elemental"
-                    if not (caster\has_effect "Summoning")
-                        eff = caster\add_effect("Summoning", 20)
-                        eff.monster = (if type(monster) == "string" then monster else random_choice(monster))
-                        eff.duration = 5
-                @kill_tracker += 1
-    }
+Data.effect_create {
+    name: "PossiblySummonStormElementalOnKill"
+    category: "EquipEffect"
+    init_func: (caster) =>
+        @kill_tracker = caster.kills
+    step_func: (caster) =>
+        while caster.kills > @kill_tracker
+            if chance(0.05)
+                EventLog.add("A creature is summoned due to your graceful killing!!", COL_PALE_BLUE)
+                play_sound "sound/summon.ogg"
+                monster = "Storm Elemental"
+                if not (caster\has_effect "Summoning")
+                    eff = caster\add_effect("Summoning", 20)
+                    eff.monster = (if type(monster) == "string" then monster else random_choice(monster))
+                    eff.duration = 5
+            @kill_tracker += 1
+}
 
 
-    Data.effect_create {
-        name: "PossiblySummonGolemOnKill"
-        category: "EquipEffect"
-        init_func: (caster) =>
-            @kill_tracker = caster.kills
-        step_func: (caster) =>
-            while caster.kills > @kill_tracker
-                if chance(0.05)
-                    EventLog.add("A creature is summoned due to your graceful killing!!", COL_PALE_BLUE)
-                    play_sound "sound/summon.ogg"
-                    monster = "Golem"
-                    if not (caster\has_effect "Summoning")
-                        eff = caster\add_effect("Summoning", 20)
-                        eff.monster = (if type(monster) == "string" then monster else random_choice(monster))
-                        eff.duration = 5
-                @kill_tracker += 1
-    }
+Data.effect_create {
+    name: "PossiblySummonGolemOnKill"
+    category: "EquipEffect"
+    init_func: (caster) =>
+        @kill_tracker = caster.kills
+    step_func: (caster) =>
+        while caster.kills > @kill_tracker
+            if chance(0.03)
+                EventLog.add("A creature is summoned due to your graceful killing!!", COL_PALE_BLUE)
+                play_sound "sound/summon.ogg"
+                monster = "Golem"
+                if not (caster\has_effect "Summoning")
+                    eff = caster\add_effect("Summoning", 20)
+                    eff.monster = (if type(monster) == "string" then monster else random_choice(monster))
+                    eff.duration = 5
+            @kill_tracker += 1
+}
 -------  STOP EQUIPMENT SLOT STACKED EFFECTS --------
 
 Data.effect_create {
@@ -235,11 +237,12 @@ Data.effect_create {
         @delay = 1
         @duration = @time_left
         @on_summon = do_nothing
+        @summon_xy = caster.xy
         caster.summoned or= {}
     step_func: (caster) =>
         @n_steps += 1
         if @n_steps == @delay
-            ability = SpellObjects.SummonAbility.create {monster: @monster, :caster, xy: {caster.x, caster.y}, duration: @duration, on_summon: @on_summon}
+            ability = SpellObjects.SummonAbility.create {monster: @monster, :caster, xy: @summon_xy, duration: @duration, on_summon: @on_summon}
             GameObject.add_to_level(ability)
 }
 
@@ -575,7 +578,7 @@ Data.effect_create {
         @n_summons = 0
         for mon, time in pairs caster.summoned
             if not mon.destroyed
-                time_out = (if mon.name == "Spectral Beast" then (time > 600) else (time > 4800)) -- All others are permanents
+                time_out = (if mon.name == "Spectral Beast" then (time > 600) else (time > 1200)) -- All others are permanents
                 diff_floor = (caster.map ~= mon.map)
                 if time_out or diff_floor
                     mon\direct_damage(mon.stats.hp + 1)
@@ -586,18 +589,18 @@ Data.effect_create {
                 @n_summons += 1
 }
 
-EFFECT_FOREVER = 2^30
 -- Requires kills from the necromancer, in the form of mana.
 Data.spell_create {
     name: "Summon Dark Aspect",
     spr_spell: "spr_spells.summon",
     description: "You summon a dark companion, at the cost of health and mana. The companion is stronger depending on the caster's willpower.",
     --description: "You summon a dark companion, at the cost of health and mana. The companion is stronger depending on the caster's willpower. Dies quickly outside of summoner view.",
-    mp_cost: 20,
+    mp_cost: 10,
     cooldown: 55,
     can_cast_with_held_key: false,
     fallback_to_melee: false,
     spell_cooldown: 200
+    autotarget_func: (caster) -> caster.x, caster.y
     prereq_func: (caster) ->
         if caster.stats.hp < 55
             if caster\is_local_player() 
@@ -614,8 +617,7 @@ Data.spell_create {
                 EventLog.add("You cannot currently control more than #{amount} aspects!", {200,200,255})
             return false
         return not caster\has_effect("Exhausted") and not (caster\has_effect "Summoning")
-    autotarget_func: (caster) -> caster.x, caster.y
-    action_func: (caster, x, y) ->
+    action_func: (caster, x_unused, y_unused) ->
         play_sound "sound/summon.ogg"
         monster = "Spectral Beast"
         if not (caster\has_effect "Summoning")
@@ -623,7 +625,7 @@ Data.spell_create {
             eff = caster\add_effect("Summoning", 20)
             eff.on_summon = (obj) ->
                 -- -- Make sure this monster cannot live outside its summoner's range for very long:
-                --eff = obj\add_effect("DiesOutsideOfSummonerRange", EFFECT_FOREVER)
+                --eff = obj\add_effect("DiesOutsideOfSummonerRange", INFINITE_DURATION)
                 -- eff.summoner = caster
                 -- Buff this monster based on caster's willpower:
                 obj.stats.hp += math.floor(caster\effective_stats().willpower * 5)
@@ -637,7 +639,14 @@ Data.spell_create {
 }
 
 
-for name in *{"Ranger", "Fighter", "Necromancer", "Mage"}
+share_damage = (target, damage, min_health) ->
+    -- TODO 
+    min_health = 0
+    if target.stats.hp - damage < min_health
+        damage = math.max(0, target.stats.hp - min_health)
+    target.stats.hp -= damage
+
+for name in *{"Ranger", "Fighter", "Necromancer", "Mage", "Lifelinker"}
     Data.effect_create {
         :name
         stat_func: (obj, old, new) =>
@@ -645,11 +654,14 @@ for name in *{"Ranger", "Fighter", "Necromancer", "Mage"}
                 new.spell_cooldown_multiplier *= 1.1
             if name == "Mage" and obj.stats.level == 2
                 new.spell_cooldown_multiplier *= 1.05
-            if name == "Necromancer" or name == "Mage" or name == "Ranger"
-                new.melee_cooldown_multiplier *= 1.5
+            if name ~= "Fighter"
+                new.melee_cooldown_multiplier *= 1.25
+            if name ~= "Ranger"
+                new.ranged_cooldown_multiplier *= 1.25
 
         init_func: (caster) =>
             @kill_tracker = caster.kills
+            @links = {}
         step_func: (caster) =>
             -- Keep state for doing summons in a stateful effect:
             if caster\has_effect "Summoner"
@@ -658,15 +670,26 @@ for name in *{"Ranger", "Fighter", "Necromancer", "Mage"}
                 eff = caster\add_effect "Summoner", 2
                 eff.duration = 30
             while caster.kills > @kill_tracker
-                if name == "Mage" 
-                    if caster\is_local_player()
-                        EventLog.add("You regain mana for killing!", COL_PALE_BLUE)
-                    caster\heal_mp(4 + caster.stats.level)
-                elseif name == "Necromancer"
+                if name == "Necromancer"
                     if caster\is_local_player()
                         EventLog.add("You gain mana for killing!", COL_PALE_BLUE)
                     caster\heal_mp(5)
+                for {:instance, :class_name} in *World.players
+                    if instance ~= caster and class_name == "Necromancer"
+                        if instance\is_local_player()
+                            EventLog.add("You gain mana from the carnage!", COL_PALE_BLUE)
+                        instance\heal_mp(2)
                 @kill_tracker += 1
+        on_damage_func: (caster, damage) =>
+            new_links = {}
+            for link in *@links
+                if link.destroyed
+                    continue
+                append new_links, link
+                share_damage(link, damage, 5)
+                if caster\is_local_player()
+                    EventLog.add("Your link feels your pain!", COL_PALE_RED)
+            @links = new_links
         on_receive_melee_func: (attacker, defender, damage, attack_stats) =>
             if name == "Necromancer"
                 if attacker\direct_damage(damage * 0.33)
@@ -675,4 +698,163 @@ for name in *{"Ranger", "Fighter", "Necromancer", "Mage"}
                     EventLog.add("Your corrosive flesh hurts #{mon_title attacker} as you are hit!", COL_PALE_BLUE)
             return damage
     }
+
+-- Move in a direction, attacking everyone along the way
+Data.effect_create {
+    name: "Dash Attack"
+    effected_sprite: "spr_effects.pain_mirror"
+    can_use_rest: false
+    effected_colour: {200, 200, 255, 255}
+    fade_out: 10
+    init_func: (caster) =>
+        play_sound "sound/equip.ogg"
+        @steps = 0
+        @n_hits = 0
+        @attacked = {} -- No one attacked at first
+    step_func: (caster) =>
+        @steps += 1
+        -- Move forward: 
+        xy = {
+            caster.x + math.cos(@angle) * 16
+            caster.y + math.sin(@angle) * 16
+        }
+        if Map.object_tile_check(caster, xy)
+            play_sound "sound/door.ogg"
+            caster\remove_effect "Dash Attack"
+            return
+        caster.xy = xy
+        if caster\has_ranged_weapon()
+            return
+        -- Attack nearby monsters:
+        for mon in *Map.enemies_list(caster)
+            dist = vector_distance(mon.xy, caster.xy)
+            if dist < caster.target_radius + mon.target_radius --+ caster.weapon_range
+                if @attacked[mon.id]
+                    continue
+                @attacked[mon.id] = true
+                if caster\is_local_player()
+                    EventLog.add("You strike as you pass!", {200,200,255})
+                @n_hits += 1
+                caster\melee(mon, math.max(0.1, 1.0 / @n_hits))
+    draw_func: (caster) =>
+        for i=1,math.min(@steps, 12)
+            xy = {
+                caster.x - math.cos(@angle) * 16 * i
+                caster.y - math.sin(@angle) * 16 * i
+            }
+            screen_xy = Display.to_screen_xy(xy)
+            caster.sprite\draw({color: {255,255,255, 200 - 30 * i}, origin: Display.CENTER}, screen_xy)
+    stat_func: (caster, old, new) =>
+        new.speed = 0
+        caster.stats.attack_cooldown = 2
+        -- new.strength += 2
+        -- new.defence += 5
+        -- new.willpower += 5
+}
+
+-- Dash Attack
+Data.spell_create {
+    name: "Dash Attack",
+    spr_spell: "expedite",
+    description: "Dash in a straight line, hitting all enemies in your path. Stops if you hit a wall." -- Can still perform abilities while dashing.",
+    --description: "You summon a dark companion, at the cost of health and mana. The companion is stronger depending on the caster's willpower. Dies quickly outside of summoner view.",
+    mp_cost: 0
+    cooldown: 0
+    can_cast_with_held_key: true
+    fallback_to_melee: true
+    spell_cooldown: 400
+    action_func: (x, y) =>
+        effect = @add_effect "Dash Attack", 15
+        effect.angle = vector_direction(@xy, {x,y})
+        if @is_local_player()
+            EventLog.add("You dash valiantly forward!", {200,200,255})
+    prereq_func: () =>
+        return not @has_ranged_weapon()
+    autotarget_func: () =>
+        {dx, dy} = @last_moved_direction
+        return @x + dx * 32, @y + dy * 32
+}
+
+Data.effect_create {
+    name: "Lifelink"
+    init_func: (summon) =>
+        @linker = false
+    on_damage_func: (summon, damage) =>
+        assert @linker, "No linker set in lifelink!"
+        {:links} = @linker\get_effect("Lifelinker")
+        share_damage(@linker, damage, 15) -- Cannot bring below 15HP
+        if @linker\is_local_player()
+            EventLog.add("You feel your links pain!", COL_PALE_RED)
+        for link in *links do if link ~= summon
+            share_damage(link, damage, 5) -- Cannot bring below 5HP
+}
+
+-- Link of Loyalty
+Data.spell_create {
+    name: "Link of Loyalty",
+    spr_spell: "spr_spells.forgelink",
+    description: "You summon a linked companion near an enemy, sending them to immediate combat but taking damage whenever they take damage. The type of companion depends on your amulet's summoning aspect.",
+    mp_cost: 20
+    cooldown: 0
+    can_cast_with_held_key: false
+    fallback_to_melee: false
+    spell_cooldown: 40
+    prereq_func: (caster) ->
+        {:n_summons} = caster\get_effect("Summoner")
+        if n_summons >= 2 -- caster.stats.level
+            if caster\is_local_player() 
+                EventLog.add("You cannot currently control more than #{2} aspects!", {200,200,255})
+            return false
+        return not caster\has_effect("Exhausted") and not (caster\has_effect "Summoning")
+    action_func: (caster, x, y) ->
+        play_sound "sound/lifelink.ogg"
+        monster = "Cloud Elemental" -- TODO based on amulet
+        if not (caster\has_effect "Summoning")
+            eff = caster\add_effect("Summoning", 20)
+            eff.summon_xy = {x, y}
+            eff.on_summon = (obj) ->
+                -- Buff this monster based on caster's willpower:
+                --obj.stats.strength += math.floor(caster\effective_stats().willpower / 2)
+                --obj.stats.magic += math.floor(caster\effective_stats().willpower / 2)
+                --obj.stats.defence += math.floor(caster\effective_stats().willpower / 2)
+                --obj.stats.willpower += math.floor(caster\effective_stats().willpower / 2)
+                lifelink = obj\add_effect("Lifelink", INFINITE_DURATION)
+                lifelink.linker = caster
+                append caster\get_effect("Lifelinker").links, obj
+            eff.monster = monster
+            eff.duration = 5
+}
+
+-- Unlink
+-- TODO AOE link all enemies?
+Data.spell_create {
+    name: "Unlink",
+    spr_spell: "spr_spells.unlink",
+    description: "You break the link with all life-linked monsters. Monsters you have summoned are returned to their domain. Heals a small amount of health per monster."
+    mp_cost: 0
+    cooldown: 0
+    can_cast_with_held_key: false
+    fallback_to_melee: false
+    spell_cooldown: 40
+    prereq_func: (caster) ->
+        {:n_summons} = caster\get_effect("Summoner")
+        if n_summons == 0
+            if caster\is_local_player() 
+                EventLog.add("You have no lifelinked monsters!", {200,200,255})
+            return false
+        return not caster\has_effect("Exhausted") and not (caster\has_effect "Summoning")
+    action_func: (caster, x, y) ->
+        eff = caster\get_effect("Lifelinker")
+        play_sound "sound/unlink.ogg"
+        -- Unlink:
+        links, eff.links = eff.links, {}
+        -- Kill:
+        for link in *links
+            if link.destroyed
+                continue
+            link\direct_damage(link.stats.hp + 1)
+            caster\heal_hp(25)
+
+    autotarget_func: (caster) -> caster.x, caster.y
+}
 
