@@ -13,10 +13,6 @@ _EMPTY_TABLE = {}
 -- Enable references to coloured prints through-out bootstrap code:
 require "terminal.Globals"
 
--- Global data is a special submodule, its members are always serialized
-local GlobalData = require "core.GlobalData"
-print "WHATT"
-
 local print,error,assert=print,error,assert -- Performance
 
 append = table.insert -- Convenient alias
@@ -306,5 +302,3 @@ function newtype(args)
 
     return type
 end
-
-

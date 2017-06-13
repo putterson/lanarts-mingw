@@ -1,60 +1,27 @@
-export enemy_init
-export enemy_step
-export enemy_berserker_init
-export enemy_berserker_step
-
 Map = require "core.Map"
 ObjectUtils = require "objects.ObjectUtils"
 EventLog = require "ui.EventLog"
+DataW = require "DataWrapped"
 
-enemy_init = (enemy) -> nil
-
-enemy_step = (enemy) -> nil
-
-enemy_berserker_init = (enemy) ->
-    enemy.berserk_time = 500
-
-enemy_berserker_step = (enemy) ->
-    enemy.berserk_time = enemy.berserk_time - 1
-    if enemy.berserk_time <= 0 and Map.object_visible(enemy)
-        enemy\add_effect("Berserk", 300)
-        enemy.berserk_time = 500
-
-Data.effect_create {
-    name: "Enraging"
-    init_func: (mon) =>
-        @damage_tracker = 0
-        @damage_interval = mon.stats.max_hp / 3
-        @next_hp_threshold = mon.stats.max_hp - @damage_interval
-    on_damage_func: (mon, dmg) =>
-        @damage_tracker += dmg
-        new_hp = mon.stats.hp - dmg
-        if new_hp < @next_hp_threshold
-            EventLog.add((if mon.unique then "" else "The ") .. mon.name .. " gets mad!", {255,255,255})
-            mon\add_effect("Charging", 100)
-            @next_hp_threshold -= @damage_interval
-        return dmg
-}
+-- ELEMENTAL ENEMIES --
 
 
 -- UNDEAD ENEMIES --
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Crypt Keeper" 
     sprite: "spr_enemies.undead.lich"
     radius: 11
     xpaward: 75
     appear_message: "A frightful Crypt Keeper emerges!"
     defeat_message: "The Crypt Keeper has been destroyed."
+    weapon: {cooldown: 40, damage: 16}
     stats: {
-        attacks: {
-            {weapon: "Basic Melee"}
-        }
         hp: 50
         hpregen: 0.03
         movespeed: 2
         -- base stats:
-        strength: 15
+        strength: 3
         defence: 8
         magic: 5
         willpower: 8
@@ -62,7 +29,7 @@ Data.enemy_create {
     effects_active: {"Pain Aura"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Mana Sapper" 
     sprite: "spr_enemies.demons.manasapper"
     radius: 11
@@ -86,7 +53,7 @@ Data.enemy_create {
 }
 
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Gaseous Ghost" 
     sprite: "spr_enemies.undead.hungry_ghost"
     radius: 11
@@ -110,7 +77,7 @@ Data.enemy_create {
     effects_active: {"PoisonedWeapon"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Spectral Beast" 
     sprite: "spr_enemies.undead.spectral_lizard"
     radius: 11
@@ -132,7 +99,7 @@ Data.enemy_create {
     }
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Mummy"
     sprite: "spr_enemies.undead.mummy"
     radius: 11
@@ -183,7 +150,7 @@ summoner_base = (monster, amount, rate = 60, kill_time = 250, duration = 150) ->
                 @n_steps += 1
 }
 
-Data.enemy_create summoner_base("Mummy", 5) {
+DataW.enemy_create summoner_base("Mummy", 5) {
     name: "Mummoner" 
     sprite: "spr_enemies.undead.greater_mummy"
     radius: 11
@@ -207,7 +174,7 @@ Data.enemy_create summoner_base("Mummy", 5) {
 
 -- SNAKE PIT ENEMIES
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Queen Bee"
     sprite: "spr_enemies.animals.queen_bee"
     death_sprite: "green blood"
@@ -228,7 +195,7 @@ Data.enemy_create {
     effects_active: {"PoisonedWeapon", "Enraging"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Giant Bee"
     sprite: "spr_enemies.animals.killer_bee"
     death_sprite: "green blood"
@@ -246,10 +213,13 @@ Data.enemy_create {
         defence: 0
         willpower: 12
     }
-    effects_active: {"PoisonedWeapon", "Spiky"}
+    effects_active: {
+        "PoisonedWeapon", 
+        {"Spiky", {recoil_percentage: 0.25}}
+    }
 }
  
-Data.enemy_create {
+DataW.enemy_create {
     name: "Ramitawil"
     sprite: "spr_enemies.bosses.boss_bee"
     radius: 20
@@ -265,7 +235,11 @@ Data.enemy_create {
         defence: 15
         willpower: 20
     }
-    effects_active: {"PoisonedWeapon", "Spiky", "Enraging"}
+    effects_active: {
+        "PoisonedWeapon", 
+        {"Spiky", {recoil_percentage: 0.25}}
+        "Enraging"
+    }
     death_func: () =>
         ItemUtils = require "maps.ItemUtils"
         ItemGroups = require "maps.ItemGroups"
@@ -281,7 +255,7 @@ Data.enemy_create {
         ObjectUtils.spawn_item_near(@, "Amulet of Great Pain", 1)
 }
  
-Data.enemy_create {
+DataW.enemy_create {
     name: "Mouther" 
     sprite: "spr_enemies.animals.tyrant_leech"
     radius: 11
@@ -299,13 +273,13 @@ Data.enemy_create {
         -- base stats:
         strength: 5
         defence: 0
-        magic: 10
+        magic: 17
         willpower: 0
     }
     effects_active: {"PoisonedWeapon"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Black Mamba"
     sprite: "spr_enemies.animals.black_mamba"
     death_sprite: "blood"
@@ -313,19 +287,19 @@ Data.enemy_create {
     xpaward: 10
     appear_message: "A poisonous black mamba slithers onto the scene!"
     defeat_message: "The black mamba is dead."
+    weapon: {cooldown: 40, damage: 12} 
     stats: {
-        attacks: {{weapon: "Fast Melee"}}
         hp: 40
         hpregen: 0.04
         movespeed: 3.5
-        strength: 15
+        strength: 3
         defence: 0
-        willpower: 5
+        willpower: 0
     }
     effects_active: {"PoisonedWeapon"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Clown Mage" 
     sprite: "spr_enemies.humanoid.killer_klown_purple"
     radius: 11
@@ -359,34 +333,7 @@ Data.enemy_create {
 --             elseif not target.is_enemy and target\is_local_player()
 --                 EventLog.add("You are thrown back!", {200,200,255})
 
-Data.effect_create {
-    name: "Charging"
-    stat_func: (mon, old, new) =>
-        new.speed *= 4
-        if @n_steps > @n_ramp
-            new.melee_cooldown_multiplier *= 0.5
-        new.hpregen *= 2
-    effected_sprite: "spr_effects.i-loudness"
-    effected_colour: {255,0,0}
-    fade_out: 15
-    init_func: (mon) =>
-        @n_steps = 0
-        @n_ramp = 10
-    step_func: () =>
-        if @n_steps % 60 == 0
-            play_sound "sound/wavy.ogg"
-        @n_steps += 1
-    on_melee_func: (mon, defender, damage, attack_stats) =>
-        if @n_steps > @n_ramp
-            thrown = defender\add_effect("Thrown", 10)
-            thrown.angle = vector_direction({mon.x, mon.y}, {defender.x, defender.y})
-            if not mon.is_enemy and mon\is_local_player() 
-                EventLog.add("The " .. defender.name .." is thrown back!", {200,200,255})
-            elseif not defender.is_enemy and defender\is_local_player()
-                EventLog.add("You are thrown back!", {200,200,255})
-            -- mon\remove_effect("Charging")
-}
-Data.enemy_create {
+DataW.enemy_create {
     name: "Elephant"
     sprite: "spr_enemies.animals.elephant"
     death_sprite: "blood"
@@ -406,7 +353,7 @@ Data.enemy_create {
     effects_active: {"Enraging"}
 }
  
-Data.enemy_create {
+DataW.enemy_create {
     name: "Sheep"
     sprite: "spr_enemies.animals.sheep"
     death_sprite: "blood"
@@ -426,7 +373,7 @@ Data.enemy_create {
     effects_active: {"Enraging"}
 }
  
-Data.enemy_create {
+DataW.enemy_create {
     name: "Red Dragon"
     appear_message: "A frighteningly large red dragon comes into view!"
     defeat_message: "You have slain the red dragon!"
@@ -435,7 +382,8 @@ Data.enemy_create {
     xpaward: 150
     unique: true
     stats: {
-        attacks: { { projectile: "Large Fire Ball"} }
+        projectile: {
+        }
         hp: 220
         hpregen: 0.1
         movespeed: 2.5
@@ -454,7 +402,7 @@ Data.enemy_create {
         ObjectUtils.spawn_item_near(@, type, amount)
 }
 
-Data.enemy_create summoner_base("Imp", 1, 100, 100) {
+DataW.enemy_create summoner_base("Imp", 1, 100, 100) {
     name: "Hell Warrior"
     appear_message: "A Hell Warrior commands you to die!"
     defeat_message: "You have rebuked the Hell Warrior!"
@@ -485,7 +433,7 @@ Data.enemy_create summoner_base("Imp", 1, 100, 100) {
         ObjectUtils.spawn_item_near(@, type, amount)
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Gragh"
     appear_message: "Gragh greets you uproariously!"
     defeat_message: "Gragh yells goodbye!"
@@ -516,7 +464,7 @@ Data.enemy_create {
     effects_active: {"Enraging"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Stara"
     appear_message: "Stara cackles!"
     defeat_message: "Stara is dead!"
@@ -549,7 +497,7 @@ Data.enemy_create {
     effects_active: {"Pain Aura"}
 }
 
-Data.enemy_create summoner_base({"Mouther", "Mana Sapper", "Crypt Keeper"}, 3, 100, 200, 25) {
+DataW.enemy_create summoner_base({"Mouther", "Mana Sapper", "Crypt Keeper"}, 3, 100, 200, 25) {
     name: "Pixulloch"
     appear_message: "Pixulloch laughs at your feeble presence!"
     defeat_message: "Pixulloch has been defeated! Consider the game won. For now."
@@ -558,7 +506,15 @@ Data.enemy_create summoner_base({"Mouther", "Mana Sapper", "Crypt Keeper"}, 3, 1
     xpaward: 300
     unique: true
     stats: {
-        attacks: {{ weapon: "Basic Melee"}, { projectile: "Longer Range Blue Blast"}}
+        attacks: {{ weapon: "Basic Melee"}}
+        projectile: { -- Adds to 'attacks'
+            weapon_class: "magic"
+            damage_type: {magic: 0.5, physical: 0.5}
+            range: 300
+            cooldown: 70
+            speed: 8
+            spr_attack: "blue blast"
+        }
         movespeed: 3.5
         hp: 500
         hpregen: 0.15
@@ -569,7 +525,7 @@ Data.enemy_create summoner_base({"Mouther", "Mana Sapper", "Crypt Keeper"}, 3, 1
     }
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Centaur Hunter"
     sprite: "spr_enemies.humanoid.centaur"
     death_sprite: "blood"
@@ -578,7 +534,20 @@ Data.enemy_create {
     appear_message: "A centaur hunter readies his bow."
     defeat_message: "The centaur hunter has been defeated."
     stats: {
-        attacks: {{projectile: "Dark Arrows"}}
+        projectile: {
+            weapon_class: 'bows'
+            damage_type: {physical: 1.0}
+            cooldown: 30
+            speed: 9
+            spr_attack: 'nessos arrows'
+            on_hit_func: (target, atkstats) =>
+                if chance(.25) -- TODO poison resistance
+                    effect = target\add_effect("Poison", 100, atkstats)
+                    effect.damage = atkstats.damage
+                    effect.power = atkstats.power
+                    effect.magic_percentage = atkstats.magic_percentage
+                    effect.physical = atkstats.physical
+        }
         hp: 80
         hpregen: 0.01
         movespeed: 4
@@ -589,7 +558,7 @@ Data.enemy_create {
     effects_active: {"StopOnceInRange"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Centaur Marksman"
     sprite: "spr_enemies.humanoid.centaur_warrior"
     death_sprite: "blood"
@@ -598,7 +567,20 @@ Data.enemy_create {
     appear_message: "A centaur marksman readies his bow."
     defeat_message: "The centaur marksman has been defeated."
     stats: {
-        attacks: {{projectile: "Poison Arrows"}}
+        projectile: {
+            weapon_class: 'bows'
+            damage_type: {physical: 1.0}
+            cooldown: 30
+            speed: 9
+            spr_attack: 'nessos arrows'
+            on_hit_func: (target, atkstats) =>
+                if chance(.25) -- TODO poison resistance
+                    effect = target\add_effect("Poison", 100, atkstats)
+                    effect.damage = atkstats.damage
+                    effect.power = atkstats.power
+                    effect.magic_percentage = atkstats.magic_percentage
+                    effect.physical = atkstats.physical
+        }
         hp: 120
         hpregen: 0.02
         movespeed: 4
@@ -609,7 +591,7 @@ Data.enemy_create {
     effects_active: {"StopOnceInRange"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
     name: "Nesso"
     sprite: "spr_enemies.humanoid.centaur_warrior"
     death_sprite: "blood"
@@ -619,18 +601,31 @@ Data.enemy_create {
     appear_message: "Nesso readies his bow."
     defeat_message: "Nesso has been defeated."
     stats: {
-        attacks: {{projectile: "Rapid Poison Arrows"}}
+        projectile: {
+            weapon_class: 'bows'
+            damage_type: {physical: 1.0}
+            cooldown: 20
+            speed: 9
+            spr_attack: 'nessos arrows'
+            on_hit_func: (target, atkstats) =>
+                if chance(.25) -- TODO poison resistance
+                    effect = target\add_effect("Poison", 100, atkstats)
+                    effect.damage = atkstats.damage
+                    effect.power = atkstats.power
+                    effect.magic_percentage = atkstats.magic_percentage
+                    effect.physical = atkstats.physical
+        }
         hp: 200
         hpregen: 0.02
         movespeed: 4
-        strength: 40
+        strength: 60
         defence: 16
         willpower: 16
     }
     effects_active: {"StopOnceInRange"}
 }
 
-Data.enemy_create {
+DataW.enemy_create {
    name: "Hell Forged"
    sprite: "hell forged"
    radius: 12
@@ -638,7 +633,15 @@ Data.enemy_create {
    appear_message: "A hell-forged creature appears before you!"
    defeat_message: "The hell-forged is destroyed."
    stats: {
-       attacks: {{projectile: "Large Fire Ball"}}
+       projectile: {
+           weapon_class: "magic"
+           damage_type: {magic: 0.5, physical: 0.5}
+           range: 250
+           radius: 11
+           cooldown: 40
+           speed: 8
+           spr_attack: "large fire"
+       }
        movespeed: 3.5
        hp: 125
        hpregen: 0.01
@@ -646,5 +649,684 @@ Data.enemy_create {
        magic: 45
        defence: 25
        willpower: 25
+    }
+}
+
+-- ELEMENTAL ENEMIES
+
+DataW.enemy_create {
+    name: "Cloud Elemental"
+    sprite: "cloud elemental"
+    appear_message: "A cloud elemental floats onto the scene."
+    defeat_message: "The cloud elemental dissolves."
+    radius: 12
+    xpaward: 5
+    stats: {
+        projectile: {
+            weapon_class: "magic"
+            damage_type: {magic: 1.0}
+            range: 130
+            cooldown: 45
+            speed: 7
+            spr_attack: "storm bolt"
+        }
+        movespeed: 2
+        hp: 15
+        hpregen: 0.02
+        strength: 5
+        magic: 25
+        defence: 4
+        willpower: 5
+    }
+}
+
+DataW.enemy_create {
+    name: "Storm Elemental"
+    sprite: "storm elemental"
+    radius: 14
+    xpaward: 20
+    appear_message: "A storm elemental floats onto the scene."
+    defeat_message: "The storm elemental dissolves."
+    stats: {
+        projectile: {
+            weapon_class: "magic"
+            damage_type: {magic: 1.0}
+            range: 130
+            cooldown: 45
+            speed: 7
+            spr_attack: "storm bolt"
+        }
+        movespeed: 1
+        hp: 50
+        hpregen: 0.05
+        strength: 5
+        magic: 25
+        defence: 6  
+        willpower: 8
+    }
+}
+       
+DataW.enemy_create {
+    name: "Hell Storm"
+    sprite: "hell storm"
+    radius: 14
+    xpaward: 40
+    appear_message: "A raging storm elemental appears!"
+    defeat_message: "The raging storm elemental dissipates."
+    stats: {
+        projectile: {
+            weapon_class: "magic"
+            damage_type: {magic: 1.0}
+            range: 130
+            cooldown: 45
+            speed: 7
+            spr_attack: "storm bolt"
+        }
+        movespeed: 2
+        hp: 75
+        hpregen: 0.05
+        strength: 5
+        magic: 45
+        defence: 8
+        willpower: 10
+    }
+}
+
+-- ANIMAL ENEMIES
+
+DataW.enemy_create {
+    name: "Giant Rat"
+    sprite: "giant rat"
+    death_sprite: "blood"
+    radius: 14
+    xpaward: 5
+    description: "A giant, aggressive vermin."
+    appear_message: "A hostile large rat approaches!"
+    defeat_message: "Blood splatters as the large rat is destroyed."
+    stats: {
+        attacks: { {weapon: "Basic Melee"} }
+        hp: 15
+        hpregen: 0.03
+        movespeed: 2
+        --base stats: {
+        strength: 10
+        defence: 5
+        willpower: 5
+    }
+}
+              
+DataW.enemy_create {
+    name: "Giant Bat"
+    sprite: "giant bat"
+    death_sprite: "blood"
+    radius: 12
+    xpaward: 8
+    appear_message: "A hungry giant bat surveys the scene."
+    defeat_message: "The giant bat has died."
+    stats: {
+        attacks: { {weapon: "Fast Melee"} }
+        hp: 18
+        hpregen: 0.03
+        movespeed: 3
+        strength: 10
+        defence: 5
+        willpower: 5
+    }
+}
+ 
+DataW.enemy_create {
+    name: "Tarantella"
+    sprite: "spr_enemies.animals.tarantella"
+    death_sprite: "green blood"
+    radius: 14
+    xpaward: 10
+    appear_message: "A demonic tarantella crawls towards you!"
+    defeat_message: "The demonic tarantella has been squashed."
+    stats: {
+        attacks: { {weapon: "Fast Melee"} }
+        hp: 65
+        hpregen: 0.04
+        movespeed: 4.5
+        strength: 25
+        defence: 12
+        willpower: 10
+    }
+}
+ 
+DataW.enemy_create {
+    name: "Giant Spider"
+    sprite: "giant spider"
+    death_sprite: "green blood"
+    radius: 14
+    xpaward: 10
+    appear_message: "A giant spider crawls towards you!"
+    defeat_message: "The giant spider has been squashed."
+    stats: {
+        attacks: { {weapon: "Fast Melee"} }
+        hp: 15
+        hpregen: 0.04
+        movespeed: 4
+        strength: 12
+        defence: 4
+        willpower: 10
+    }
+}
+       
+DataW.enemy_create {
+    name: "Hound"
+    sprite: "hound"
+    death_sprite: "blood"
+    radius: 14
+    xpaward: 10
+    appear_message: "A hungry, feral hound notices you."
+    defeat_message: "The hound yelps as it is pulverized."
+    stats: {
+        attacks: { {weapon: "Basic Melee"} }
+        hp: 25
+        hpregen: 0.03
+        movespeed: 2.5
+        strength: 12
+        defence: 5
+        willpower: 5
+    }
+}
+       
+DataW.enemy_create {
+    name: "Hydra"
+    sprite: "hydra"
+    death_sprite: "dead hydra"
+    radius: 17
+    xpaward: 30
+    appear_message: "A hydra appears!"
+    defeat_message: "The hydra is vanquished."
+    stats: {
+        attacks: { {weapon: "Basic Melee"} }
+        hp: 100
+        hpregen: 0.05
+        movespeed: 3.0
+        strength: 20
+        defence: 20
+        willpower: 15
+    }
+}
+DataW.enemy_create {
+    name: "Giant Frog"
+    sprite: "giant frog"
+    death_sprite: "green blood"
+    radius: 14
+    xpaward: 10
+    appear_message: "A giant frog hops onto the scene."
+    defeat_message: "The giant frog dies!"
+    stats: {
+        attacks: { {weapon: "Slow Melee"} }
+        hp: 25
+        hpregen: 0.01
+        movespeed: 3
+        strength: 12
+        defence: 5
+        willpower: 5
+    }
+}
+           
+DataW.enemy_create {
+    name: "Adder"
+    sprite: "adder"
+    death_sprite: "blood"
+    radius: 9
+    xpaward: 10
+    kills_before_stale: 100
+    appear_message: "An adder slithers onto the scene! "
+    defeat_message: "The adder is dead. "
+    weapon: {cooldown: 20, damage: 11}
+    stats: {
+        hp: 20
+        hpregen: 0.04
+        movespeed: 4
+        strength: 3
+        defence: 0
+        willpower: 0
+    }
+}
+         
+DataW.enemy_create {
+    name: "Chicken"
+    sprite: "chicken"
+    death_sprite: "blood"
+    radius: 10
+    xpaward: 15
+    appear_message: "A hostile chicken appears!"
+    defeat_message: "The chicken may as well be fried."
+    weapon: {cooldown: 20, damage: 11}
+    stats: {
+        hp: 25
+        hpregen: 0.04
+        movespeed: 3
+        strength: 3
+        defence: 7
+        willpower: 7
+    }
+}
+
+DataW.enemy_create {
+    name: "Horse"
+    sprite: "horse"
+    death_sprite: "blood"
+    radius: 12
+    xpaward: 15
+    appear_message: "A horse comes at full gallop!"
+    defeat_message: "The horse is beaten."
+    stats: {
+        attacks: { {weapon: "Basic Melee"} }
+        hp: 35
+        hpregen: 0.02
+        movespeed: 5
+        strength: 25
+        defence: 15
+        willpower: 15
+    }
+}
+     
+DataW.enemy_create {
+    name: "Super Chicken"
+    sprite: "super_chicken"
+    death_sprite: "green blood"
+    radius: 14
+    xpaward: 20
+    appear_message: "An unnaturally glowing chicken appears!"
+    defeat_message: "The glowing chicken recieves a final blow."
+    stats: {
+        attacks: { {weapon: "Fast Halfmagic Melee"} }
+        hp: 40
+        hpregen: 0.08
+        movespeed: 4
+        strength: 25
+        defence: 10
+        willpower: 10
+    }
+}
+
+-- UNDEAD ENEMIES
+
+DataW.enemy_create {
+    name: "Skeleton"
+    sprite: "skeleton"
+    radius: 11
+    xpaward: 10
+    appear_message: "A re-animated skeleton appears!"
+    defeat_message: "The skeleton is broken unto a pile of bones."
+    weapon: {cooldown: 40, damage: 12}
+    stats: {
+        hp: 50
+        hpregen: 0
+        movespeed: 2
+        strength: 2
+        magic: 2
+        defence: 0
+        willpower: 2
+    }
+}
+        
+DataW.enemy_create {
+    name: "Skeleton Fighter"
+    sprite: "skeleton fighter"
+    radius: 11
+    xpaward: 30
+    appear_message: "A re-animated skeleton appears!"
+    defeat_message: "The skeleton is broken unto a pile of bones."
+    weapon: {cooldown: 40, damage: 20}
+    stats: {
+        hp: 75
+        hpregen: 0.05
+        movespeed: 2
+        strength: 5
+        magic: 5
+        defence: 5
+        willpower: 5  
+    }
+}
+        
+DataW.enemy_create {
+    name: "Zombie"
+    sprite: "zombie"
+    death_sprite: "green blood"
+    appear_message: "A re-animated zombie appears!"
+    defeat_message: "The zombie is beaten into a mess of flesh."
+    radius: 14
+    xpaward: 25
+    weapon: {cooldown: 60, damage: 20}
+    stats: {
+        hp: 40
+        hpregen: 0.05
+        movespeed: 2
+        strength: 10
+        magic: 10
+        defence: 8
+        willpower: 8  
+    }
+}
+      
+DataW.enemy_create {
+    name: "Krell"
+    sprite: "franken"
+    death_sprite: "green blood"
+    description: "A creature of unholy will to live."
+    appear_message: "A horrible krell enters the scene."
+    defeat_message: "The krell dies at last."
+    radius: 14
+    xpaward: 30
+    weapon: {cooldown: 60, damage: 35}
+    stats: {
+        hp: 35
+        hpregen: 0.25
+        movespeed: 2
+        strength: 12
+        magic: 0
+        defence: 10
+        willpower: 10
+    }
+}
+
+--  - name: Executioner
+--    sprite: exec
+--    description: "An undead creature equipped with terrifying blades."
+--    appear_message: "The terrifying executioner appears."
+--    defeat_message: "The executioner is vanquished."
+--    init_func: enemy_berserker_init 
+--    step_func: enemy_berserker_step
+--    radius: 12
+--    xpaward: 50
+--    stats: {
+--        attacks: { {weapon: "Fast Melee"} }
+--        movespeed: 4.0
+--        hp: 50
+--        hpregen: 0.25
+--        strength: 20
+--        magic: 20
+--        defence: 10  
+--        willpower: 10
+
+-- DEMONIC ENEMIES
+
+DataW.enemy_create {
+    name: "Unseen Horror"
+    sprite: "unseen horror"
+    death_sprite: "purple blood"
+    description: "A creature adept at withstanding powerful magical spells."
+    appear_message: "A strange one-eyed creatured approaches ..."
+    defeat_message: "The horrible one-eyed creatured dies."
+    radius: 14
+    xpaward: 30
+
+    -- TODO: Rework this enemy as a teleporter?
+    stats: {
+        attacks: { {weapon: "Fast Magic Melee"} }
+        hp: 130
+        hpregen: 0
+        movespeed: 3
+        strength: 25
+        defence: 0
+        willpower: 80 
+    }
+}
+
+DataW.enemy_create {
+    name: "Imp"
+    sprite: "spr_enemies.demons.crimson_imp"
+    death_sprite: "blood"
+    description: "A small demon that regenerates wounds unnaturally fast."
+    appear_message: "An imp shows himself!"
+    defeat_message: "The imp curses your name as he is defeated."
+    radius: 12
+    xpaward: 30
+    weapon: {cooldown: 60, damage: 20}
+    stats: {
+        movespeed: 3.3
+        hp: 70
+        hpregen: 0.25
+        strength: 8
+        magic: 8
+        defence: 10  
+        willpower: 10
+    }
+}
+
+DataW.enemy_create {
+    name: "Executioner"
+    sprite: "exec"
+    description: "An undead creature equipped with terrifying blades."
+    appear_message: "The terrifying executioner appears."
+    defeat_message: "The executioner is vanquished."
+    init_func: enemy_berserker_init 
+    step_func: enemy_berserker_step
+    radius: 12
+    xpaward: 60
+    weapon: {cooldown: 20, damage: 20}
+    stats: {
+        attacks: { {weapon: "Fast Melee"} }
+        movespeed: 4.0
+        hp: 70
+        hpregen: 0.25
+        strength: 12
+        magic: 12
+        defence: 10
+        willpower: 10
+    }
+}
+
+--  - name: Orc Priest
+--    sprite: orc priest
+--   
+--  - name: Orc Sorceror
+--    sprite: orc sorceror
+--    
+--  - name: Orc Warlord
+--    sprite: orc warlord
+--    
+--  - name: Orc High Priest
+--    sprite: orc high priest
+     
+DataW.enemy_create {
+    name: "Ogre Mage"
+    appear_message: "A terrifying ogre mage!"
+    defeat_message: "You have slain the ogre mage!"
+    sprite: "ogre mage"
+    death_sprite: "blood"
+    radius: 12
+    xpaward: 50
+    stats: {
+        projectile: {
+            weapon_class: "magic"
+            damage_type: {magic: 0.5, physical: 0.5}
+            range: 250
+            radius: 11
+            cooldown: 40
+            speed: 8
+            spr_attack: "large fire"
+        }
+        hp: 80
+        hpregen: 0.1
+        movespeed: 2.5
+        strength: 8
+        magic: 25
+        defence: 5
+        willpower: 15
+    }
+}
+
+DataW.enemy_create {
+    name: "Orc Warrior"
+    sprite: "orc knight"
+    death_sprite: "blood"
+    radius: 12
+    xpaward: 30
+    appear_message: "You see an orc warrior!"
+    defeat_message: "The orc warrior dies."
+    init_func: enemy_berserker_init 
+    step_func: enemy_berserker_step
+    stats: {
+        attacks: { {weapon: "Fast Melee"} }
+        hp: 80
+        hpregen: 0.02
+        movespeed: 3.4
+        strength: 20
+        defence: 8
+        willpower: 6
+    }
+}
+--    
+--  - name: Orc Knight
+--    sprite: orc knight
+--    
+--  - name: Orc Wizard
+--    sprite: orc wizard
+
+-- BOSSES
+
+DataW.enemy_create {
+    name: "Pisilohe"
+    sprite: "pisilohe"
+    radius: 30
+    xpaward: 150
+    unique: true
+    stats: {
+        attacks: { {weapon: "Basic Melee"}}
+        hp: 250
+        hpregen: 0.1
+        movespeed: 2.5
+        strength: 25
+        magic: 25
+        defence: 15
+        willpower: 15
+    }
+}
+
+-- MISC ENEMIES
+
+DataW.enemy_create {
+    name: "Ciribot"
+    sprite: "ciribot"
+    radius: 14
+    xpaward: 30
+    appear_message: "A strange blue metallic creature appears!"
+    defeat_message: "The blue metallic creature is broken into scrap."
+    stats: {
+        projectile: {
+            weapon_class: "magic"
+            damage_type: {magic: 1.0}
+            range: 65
+            cooldown: 35
+            speed: 7
+            spr_attack: "magic bolt"
+        }
+        movespeed: 3
+        hp: 65
+        hpregen: 0.05
+        strength: 20
+        magic: 25
+        defence: 10  
+        willpower: 12
+    }
+}
+
+DataW.enemy_create {
+    name: "Grue"
+    sprite: "grue"
+    death_sprite: "blood"
+    radius: 14
+    xpaward: 35
+    appear_message: "You are likely to be eaten by a grue!"
+    defeat_message: "The grue has been vanquished."
+    stats:
+        attacks: { {weapon: "Slow Melee"} }
+        hp: 80
+        hpregen: 0.02
+        movespeed: 2
+        strength: 45
+        defence: 20  
+        willpower: 20
+        
+DataW.enemy_create {
+    name: "Jester"
+    sprite: "jester"
+    death_sprite: "green blood"
+    radius: 12
+    xpaward: 35
+    appear_message: "An odd and quick creature appears!"
+    defeat_message: "The odd and quick creature has been destroyed."
+    stats:
+        attacks: { {weapon: "Basic Melee"} }
+        hp: 100
+        hpregen: 0.06
+        movespeed: 5
+        strength: 30
+        defence: 25  
+        willpower: 25
+    }
+}
+  
+DataW.enemy_create {
+    name: "Golem"
+    sprite: "golem"
+    description: "An animated creature made from rock. Unable to regenerate, but very sturdy."
+    appear_message: "A golem eyes you with a cold gaze!"
+    defeat_message: "The golem breaks apart."
+    radius: 14
+    xpaward: 55
+    stats: {
+        attacks: { {weapon: "Fast Melee"}}
+        projectile: {
+            weapon_class: "physical"
+            damage_type: {physical: 1.0}
+            range: 300
+            cooldown: 100
+            speed: 9
+            spr_attack: "big stone"
+        }
+        hp: 200
+        hpregen: 0
+        movespeed: 1
+        strength: 20
+        defence: 10
+        willpower: 10
+    }
+}
+
+DataW.enemy_create {
+    name: "Green Slime"
+    sprite: "green slime"
+    death_sprite: "green blood"
+    description: "Oozing ball of slime"
+    appear_message: "A green ball of goop slides into view"
+    defeat_message: "The green goop falls apart"
+    radius: 14
+    xpaward: 10
+    stats: {
+      attacks: { {weapon: "Fast Melee"} }
+      hp: 20
+      hpregen: 0.05
+      movespeed: 1
+      strength: 15
+      defence: 0
+      willpower: 0
+    }
+}
+
+DataW.enemy_create {
+    name: "Red Slime"
+    sprite: "red slime"
+    death_sprite: "green blood" -- TODO: Red blood
+    description: "Oozing ball of slime"
+    appear_message: "A red ball of goop slides into view"
+    defeat_message: "The red goop falls apart"
+    radius: 14
+    xpaward: 20
+    stats: {
+      attacks: { {weapon: "Fast Melee"} }
+      hp: 25
+      hpregen: 0.1
+      movespeed: 1
+      strength: 6
+      defence: 4
+      willpower: 6
     }
 }

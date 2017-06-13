@@ -4,66 +4,15 @@ local Map = require "core.Map"
 local Bresenham = require "core.Bresenham"
 local SpellObjects = require "objects.SpellObjects"
 
+-- Effects:
+require("spells.Effects")
+
+-- Projectiles:
+require("spells.Projectiles")
+
 -- New spells coded in more convenient syntax:
 -- TODO figure out long term plan
 require("spells.Spells2")
-
--- MINOR MISSILE
-
-Data.spell_create {
-    name = "Minor Missile",
-    spr_spell = "minor missile",
-    description = "A low cost, fast bolt of energy. Hits a single target. The bolt can bounce off walls safely.",
-    projectile = "Minor Missile",
-    mp_cost = 4,
-    cooldown = 35
-}
-
--- FIRE BOLT
-
-Data.spell_create {
-    name = "Fireball",
-    spr_spell = "fire ball",
-    description = "A great, strong bolt of fire. Hits a single target.",
-    projectile = "Fireball",
-    mp_cost = 30,
-    cooldown = 35
-}
-
--- FIRE BOLT
-
-Data.spell_create {
-    name = "Fire Bolt",
-    spr_spell = "fire bolt",
-    description = "A fast bolt of fire. Hits a single target.",
-    projectile = "Fire Bolt",
-    mp_cost = 10,
-    cooldown = 35
-}
-
--- POISON CLOUD
-
-Data.spell_create {
-    name = "Mephitize",
-    spr_spell = "spr_spells.cloud",
-    description = "A debilitating ring of clouds that cause damage as well as reduced defenses and speed over time.",
-    projectile = "Mephitize",
-    mp_cost = 20,
-    cooldown = 35,
-    spell_cooldown = 800
-}
-
--- FEAR CLOUD
-
-Data.spell_create {
-    name = "Trepidize",
-    spr_spell = "spr_spells.cause_fear",
-    description = "An insidious apparition that instills the fear of death in enemies it hits.",
-    projectile = "Trepidize",
-    mp_cost = 0,
-    cooldown = 35,
-    spell_cooldown = 1600
-}
 
 -- REGENERATION
 
@@ -120,7 +69,7 @@ function Berserk.autotarget_func(caster)
 end
 
 function Berserk.action_func(caster, x, y)
-    caster:add_effect("Berserk", 140 + math.min(3, caster.stats.level) * 30)
+    caster:add_effect("Berserk", 130 + math.min(3, caster.stats.level) * 30)
     if caster:is_local_player() then
         play_sound "sound/berserk.ogg"
         EventLog.add("You enter a powerful rage!", {200,200,255})
@@ -156,35 +105,6 @@ end
 
 Data.spell_create(Blink)
 
--- MAGIC ARROW
-
-local MagicArrow = {
-    name = "Magic Arrow",
-    description = "Allows you to create an arrow of pure energy, requires a bow. Does well against strudy opponents.",
-    spr_spell = "magic arrow",
-    projectile = "Magic Arrow",
-    mp_cost = 20,
-    cooldown = 30,
-    resist_modifier = 0.5
-}
-
-function MagicArrow.prereq_func(caster)
-    return caster.stats.weapon_type == "bows"
-end
-
-Data.spell_create(MagicArrow)
-
--- MAGIC BLAST
-
-Data.spell_create {
-    name = "Magic Blast",
-    description = "A slow, powerful magic blast of energy. The blast can bounce off an enemy twice before dissipating.",
-    spr_spell = "magic blast",
-    projectile = "Magic Blast",
-    mp_cost = 20,
-    cooldown = 65
-}
-
 -- POWER STRIKE
 
 local PowerStrike = {
@@ -201,7 +121,7 @@ local PowerStrike = {
 
 local function ChargeCallback(_, caster)
     local num = 0
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + caster.target_radius + 30 + caster.stats.strength then
             num = num + 1
             caster:melee(mon)
@@ -235,7 +155,7 @@ function PowerStrike.prereq_func(caster)
     if caster:has_ranged_weapon() then
         return false
     end
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + caster.target_radius + 30 then
             return true
         end
@@ -268,7 +188,7 @@ function Pain.action_func(caster, x, y, target)
     local eff_range = Pain.range
     if not target or vector_distance({target.x, target.y}, {caster.x, caster.y}) > target.target_radius + eff_range then
         local least_dist = math.huge
-        for mon in values(Map.enemies_list(caster)) do
+        for _, mon in ipairs(Map.enemies_list(caster)) do
             local dist = vector_distance({mon.x, mon.y}, {caster.x, caster.y})
             if dist < mon.target_radius + eff_range and least_dist > dist then
                 least_dist = dist
@@ -311,7 +231,7 @@ function Pain.prereq_func(caster)
         end
         return false
     end
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + caster.target_radius + Pain.range then
             return true
         end
@@ -351,7 +271,7 @@ function HealAura.action_func(caster, x, y, target)
 end
 
 function HealAura.prereq_func(caster)
-    for mon in values(Map.allies_list(caster)) do
+    for _, mon in ipairs(Map.allies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + HealAura.range then
             return true
         end
@@ -390,7 +310,7 @@ function Luminos.action_func(caster, x, y, target)
 end
 
 function Luminos.prereq_func(caster)
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + Luminos.range then
             return true
         end
@@ -437,7 +357,7 @@ function GreaterPain.prereq_func(caster)
         end
         return false
     end
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + Pain.range then
             return true
         end
@@ -467,7 +387,7 @@ function FearStrike.action_func(caster, x, y)
     caster:apply_melee_cooldown()
     local num = 0
     local closest_mon, least_dist = nil, math.huge
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         local dist = vector_distance({mon.x, mon.y}, {caster.x, caster.y})
         if dist < mon.target_radius + caster.target_radius + caster.weapon_range + 8 and least_dist > dist then
             least_dist = dist
@@ -490,7 +410,7 @@ function FearStrike.prereq_func(caster)
     if caster:has_ranged_weapon() then
         return false
     end
-    for mon in values(Map.enemies_list(caster)) do
+    for _, mon in ipairs(Map.enemies_list(caster)) do
         if vector_distance({mon.x, mon.y}, {caster.x, caster.y}) < mon.target_radius + caster.target_radius + caster.weapon_range + 8 then
             return true
         end

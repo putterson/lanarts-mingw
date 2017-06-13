@@ -72,7 +72,7 @@ Data.equipment_create {
     description = "An enchanted ring of hydra skin; grants the user greater healing over time.",
     type = "ring",
 
-    shop_cost = { 95, 125 },
+    shop_cost = { 45, 65 },
     stat_bonuses = { hpregen = 0.0333333 },
     spr_item = "hydra ring",
 }
@@ -148,7 +148,4 @@ Data.equipment_create {
 
     stat_bonuses = { magic = 2, willpower = -1, mp = 10}
 }
-
--- Start the game with 1000 'randarts' -- for now, preconfigured item generations.
-require("items.Randarts").define_equipment_randarts()
 

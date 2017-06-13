@@ -21,34 +21,62 @@ if os.getenv("LANARTS_HEADLESS") then
 end
 
 function Engine.menu_start(...)
-    print "function Engine.menu_start(...)"
+    log "function Engine.menu_start(...)"
     local menus = require "Menus"
     return menus.start_menu_show(...)
 end
 
 function Engine.pregame_menu_start(...)
-    print "function Engine.pregame_menu_show(...)"
+    log "function Engine.pregame_menu_show(...)"
     local menus = require "Menus"
     return menus.pregame_menu_show(...)
 end
 
 function Engine.loading_screen_draw(...)
-    print "function Engine.loading_screen_draw(...)"
+    log "function Engine.loading_screen_draw(...)"
     local LoadingScreen = drawsystem_require "menus.LoadingScreen"
     return LoadingScreen.draw(...)
 end
 
 function Engine.resources_load(...)
-    print "function Engine.resources_load(...)"
-    --TODO: Find a better place for these helper functions
+    log "function Engine.resources_load(...)"
 
-    require "effects.Effects"
+    local function _req(module)
+        log_verbose("Loading resources from '" .. module .. "'")
+        local ret = require(module)
+        return ret
+    end
 
-    require "spells.SpellEffects"
-end
+    _G.items = {}
+    _G.spells = {}
+    _G.effects = {}
+    _G.enemies = {}
+    _G.sprites = {}
+    _G.projectiles = {}
+    _G.classes = {}
+    -- DO NOT mess with the order of these willy nilly.
+    _req "effects.Effects"
+    _req "spells.Spells"
 
-function Engine.resources_post_load(...)
-    require "tiles.Tilesets"
+    _req "items.Items"
+    _req "items.Weapons"
+    _req "items.BodyArmour"
+    _req "items.Boots"
+    _req "items.Gloves"
+    _req "items.Helmets"
+    _req "items.Belts"
+    _req "items.Legwear"
+    _req "items.Amulets"
+    _req "items.Rings"
+
+    -- Start the game with 1000 'randarts' -- for now, preconfigured item generations.
+    _req("items.Randarts").define_randarts()
+
+    _req "enemies.Enemies"
+
+    _req "tiles.Tilesets"
+
+    _req "classes.Classes"
 end
 
 function Engine.game_start(...)
@@ -95,7 +123,7 @@ function Engine.pre_serialize()
     local timer = timer_create()
     SerializationUtils.name_global_data()
     SerializationUtils.install_require_fallback()
-    print("Naming globals took " .. timer:get_milliseconds() .. "ms.")
+    log_verbose("Naming globals took " .. timer:get_milliseconds() .. "ms.")
 end
 
 function Engine.post_serialize()

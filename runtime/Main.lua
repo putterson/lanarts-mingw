@@ -5,7 +5,7 @@
 require_path_add('dependencies/?.lua')
 require_path_add('dependencies/socket/?.lua')
 
-require("GlobalVariableSetup")
+require("GlobalVariableSetup")(--[[Load draw-related globals]] false)
 require("moonscript.base").insert_loader()
 
 local argv -- Placeholder, set in main()
@@ -81,12 +81,16 @@ local function main(_argv)
     -- Using Lanarts as a Lua engine
     if has_arg "--require" then require(get_param "--require") ; return false end
     if has_arg "--lua" then
+        -- Free global variables:
+        setmetatable(_G, nil)
         -- Optionally, run a Lua file given a normal (ie, not virtual) path
         -- Then drop into a Lua REPL session. The user can exit with 'start_lanarts()'
         local file = (get_param "--lua")
         local ok, err = pcall(dofile, file)
         if err then print(err) end
-        local finished = false ; function _G.start_lanarts() finished = true end
+        local finished = false 
+        -- Dummy out start hook:
+        function _G.start_lanarts() finished = true end
         while not finished do __read_eval_print() end
     end
 
@@ -95,7 +99,6 @@ local function main(_argv)
 
     return start_lanarts()
 end
-
 
 -- The bootstrap module (ie, this file, core/Main.lua) returns a function that 
 -- takes the command-line arguments for Lanarts

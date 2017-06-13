@@ -83,14 +83,24 @@ static void lua_vm_configure(lua_State* L) {
 }
 #endif
 
-static GameState* init_gamestate(bool reinit) {
-
+static lua_State* init_luastate() {
 	lua_State* L = lua_api::create_configured_luastate();
 	lua_vm_configure(L);
 	lua_api::add_search_path(L, "?.lua");
         // Open lpeg first as the moonscript library depends on lpeg, and the moonscript library is called during error reporting.
         luaopen_lpeg(L);
+        lua_api::register_lua_libraries(L);
+        return L;
+}
 
+const char* traceback(lua_State* L) {
+    luawrap::globals(L)["debug"]["traceback"].push();
+    lua_call(L, 0, 1);
+    return lua_tostring(L, -1);
+}
+
+static GameState* init_gamestate(bool reinit) {
+        lua_State* L = init_luastate();
 	GameSettings settings; // Initialized with defaults
 	// Load the manual settings
 	if (!load_settings_data(settings, "settings.yaml")) {
@@ -109,6 +119,15 @@ static GameState* init_gamestate(bool reinit) {
 			exit(1);
 		}
 	}
+        // Width 0 resolves to monitor width:
+        Size screen_size = ldraw::screen_size();
+        if (settings.view_width == 0) {
+            settings.view_width = screen_size.w;
+        }
+        // Height 0 resolves to monitor height:
+        if (settings.view_height == 0) {
+            settings.view_height = screen_size.h;
+        }
 
 	lanarts_net_init(true);
 	lsound::init();
@@ -121,6 +140,20 @@ static GameState* init_gamestate(bool reinit) {
 	luawrap::globals(L)["_lanarts_unit_tests"].bind_function(run_unittests);
 
 	return gs;
+}
+
+static void run_bare_lua_state(int argc, char** argv) {
+        lua_State* L = init_luastate();
+
+        if (std::getenv("LANARTS_HEADLESS") == NULL) {
+            if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+                    printf("SDL_Init failed: %s\n", SDL_GetError());
+                    exit(1);
+            }
+        }
+	LuaValue main_func = luawrap::dofile(L, "Main2.lua");
+        main_func.push();
+        luawrap::call<void>(L, std::vector<std::string>(argv + 1, argv + argc));
 }
 
 static void run_engine(int argc, char** argv) {
@@ -165,17 +198,8 @@ static void run_engine(int argc, char** argv) {
 
 
 	engine["resources_load"].push();
+	init_game_data(gs->luastate());
 	luawrap::call<void>(gs->luastate());
-
-	try {
-		init_game_data(gs->game_settings(), gs->luastate());
-		engine["resources_post_load"].push();
-		luawrap::call<void>(gs->luastate());
-	} catch (const std::exception& err) {
-		fprintf(stderr, "%s\n", err.what());
-		fflush(stderr);
-		goto label_Quit;
-	}
 
 	if (gs->game_settings().conntype == GameSettings::SERVER) {
 		engine["pregame_menu_start"].push();
@@ -232,7 +256,11 @@ int main(int argc, char** argv) {
 #if NDEBUG
 	try {
 #endif
+            if (argc >= 2 && std::string(argv[1]) == "bare") { // TODO, stop-gap measure until better solution
+                run_bare_lua_state(argc - 1, argv + 1); // Remove 'bare' argument
+            } else {
 		run_engine(argc, argv);
+            }
 #if NDEBUG
 	} catch (const std::exception& err) {
 		fprintf(stderr, "%s\n", err.what());

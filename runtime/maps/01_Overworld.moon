@@ -353,7 +353,7 @@ M.hive_create = (MapSeq) ->
         dungeon_template: dungeon.TEMPLATE
         on_generate: (floor) ->
             assert(floor)
-            print "on_generate", floor
+            log_verbose  "on_generate", floor
         sprite_up: (floor) ->
             return if floor == 1 then "spr_gates.exit_lair" else "spr_gates.return"
         sprite_down: (floor) ->
@@ -682,7 +682,7 @@ overworld_features = (map) ->
                 dungeon_template: SnakePit.TEMPLATE
                 on_generate: (floor) ->
                     assert(floor)
-                    print "on_generate", floor
+                    log_verbose "on_generate", floor
                 sprite_up: (floor) ->
                     return if floor == 1 then "spr_gates.exit_lair" else "spr_gates.return"
                 sprite_down: (floor) ->
@@ -954,7 +954,7 @@ test_vault_create = (template) ->
                 return true
             on_create_source_map: (map) =>
                 if not @_create_vault(map)
-                    print "*** ABORT: create_vault"
+                    log_warn "*** ABORT: create_vault"
                     return nil
                 @player_spawn_points = MapUtils.pick_player_squares(map, map.player_candidate_squares)
                 if not @player_spawn_points
@@ -965,28 +965,31 @@ test_vault_create = (template) ->
                 Map.set_vision_radius(game_map, OVERWORLD_VISION_RADIUS)
         }
 
+test_create = (offset = 1) ->
+    dungeon = require("maps.Arena")
+    MapSeq = MapSequence.create {preallocate: 1}
+    return NewDungeons.make_linear_dungeon {
+        :MapSeq
+        :offset
+        dungeon_template: dungeon.TEMPLATE
+        on_generate: (floor) ->
+            assert(floor)
+            log_verbose "on_generate", floor
+        sprite_up: (floor) ->
+            return if floor == 1 then "spr_gates.exit_lair" else "spr_gates.return"
+        sprite_down: (floor) ->
+            return "spr_gates.enter"
+        portals_up: (floor) ->
+            return if floor == 1 then 0 else 3
+        portals_down: (floor) ->
+            return if floor == dungeon.N_FLOORS then 0 else 3
+    }
+
 overworld_create = () ->
     MapSeq = MapSequence.create {preallocate: 1}
-    --test_create = (offset = 1) ->
-    --    dungeon = require("maps.Hive")
-    --    return NewDungeons.make_linear_dungeon {
-    --        :MapSeq
-    --        :offset
-    --        dungeon_template: dungeon.TEMPLATE
-    --        on_generate: (floor) ->
-    --            assert(floor)
-    --            print "on_generate", floor
-    --        sprite_up: (floor) ->
-    --            return if floor == 1 then "spr_gates.exit_lair" else "spr_gates.return"
-    --        sprite_down: (floor) ->
-    --            return "spr_gates.enter"
-    --        portals_up: (floor) ->
-    --            return if floor == 1 then 0 else 3
-    --        portals_down: (floor) ->
-    --            return if floor == dungeon.N_FLOORS then 0 else 3
-    --    }
-    --do return test_create(0)
     local conf, schema
+    if os.getenv("ARENA_ENEMIES")
+        return test_create(0)
     NewMaps.map_create (rng) -> 
         event_log("(RNG #%d) Attempting overworld generation\n", rng\amount_generated())
         conf or= OVERWORLD_CONF(rng)
@@ -1025,4 +1028,5 @@ return {
     :overworld_create
     test_determinism: () -> nil
     :test_vault_create
+    :test_create
 }
