@@ -72,13 +72,13 @@ fi
 # These are used to communicate with CMake
 # Each flag has an optional shortform, use whichever is preferred.
 
-if handle_flag "--vanilla-lua" || handle_flag "-vl" ; then
-    export BUILD_NO_LUAJIT=1
+if handle_flag "--luajit" || handle_flag "-lj" ; then
+    export BUILD_LUAJIT=1
 fi
 if handle_flag "--optimize" || handle_flag "-O" ; then
     export BUILD_OPTIMIZE=1
 fi
-if handle_flag "--sanitize" || handle_flag "-S" ; then
+if handle_flag "--sanitize"  ; then
     export BUILD_SANITIZE=1
 fi
 if handle_flag "--profile-gen" || handle_flag "--pgen" ; then
@@ -108,6 +108,9 @@ function build_lanarts(){
     if [ $BUILD_OPTIMIZE ] ; then
         BUILD_DIR="build_release"
     fi
+    if [ $BUILD_LUAJIT ] ; then
+        BUILD_DIR="${BUILD_DIR}_luajit"
+    fi
     rm_if_link build
     if [ -d build ] ; then
         echo "You have a non-symlink build directory. Lanarts has moved to symlinking 'build' to 'build_release' or 'build_debug'. Please rename the build directory to the appropriate one of those." >&2
@@ -132,6 +135,11 @@ if ! handle_flag "-f" && ! handle_flag "--force" ; then
     else
         build_lanarts > /dev/null
     fi
+fi
+
+#   --build/-b: Do not run (build only)
+if handle_flag "-b" || handle_flag "--build" ; then
+    exit
 fi
 
 ###############################################################################

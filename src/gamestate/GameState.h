@@ -21,9 +21,6 @@
 
 #include "fov/fov.h"
 
-#include "interface/GameChat.h"
-
-#include "interface/GameHud.h"
 #include "net/GameNetConnection.h"
 
 #include "GameLogger.h"
@@ -36,6 +33,8 @@
 #include "Team.h"
 
 #include <lsound/lsound.h>
+
+#include "GameScreen.h"
 
 struct lua_State;
 class GameMapState;
@@ -116,7 +115,10 @@ public:
 	//used for synchronization purposes in network play
 	void skip_next_instance_id();
 
+	// Errors if called during step event
+	// During draw event, different for each screen
 	PlayerInst* local_player();
+	PlayerDataEntry& local_player_data();
 
 	/* Dimensions (in pixels) of game world */
 	int width();
@@ -151,12 +153,12 @@ public:
 
 	/* GameState components */
 	GameView& view() {
-		return _view;
+		return screens.view();
 	}
 
 	GameTiles& tiles();
 	GameHud& game_hud() {
-		return hud;
+		return screens.hud();
 	}
 
 	GameWorld& game_world() {
@@ -236,6 +238,9 @@ public:
 	bool mouse_upwheel();
 	bool mouse_downwheel();
 
+	/* Gamepad states */
+    std::vector<IOGamepadState>& gamepad_states();
+
 	/* Current frame number */
 	int& frame() {
 		return frame_n;
@@ -283,6 +288,15 @@ public:
 	GameStatePostSerializeData& post_deserialize_data() {
 	    return _post_deserialize_data;
 	}
+	template <typename Func>
+	void for_screens(Func&& f, bool allow_nesting = false) {
+	    screens.for_each_screen(f, allow_nesting);
+	}
+
+    GameScreen &get_screen(PlayerInst *player);
+
+	// Game screens to draw:
+	GameScreenSet screens;
 private:
 	int handle_event(SDL_Event* event, bool trigger_event_handling = true);
 
@@ -297,14 +311,11 @@ private:
 	GameStateInitData init_data;
 
 	GameNetConnection connection;
-	GameHud hud;
-	GameView _view;
 	GameWorld world;
 
 	// Maintain a LIFO stack of RNG states so that portions of game-play can isolate from each other.
 	std::vector<MTwist*> rng_state_stack;
-        MTwist base_rng_state;
-
+    MTwist base_rng_state;
 	// For dragging purposes:
 	GameView previous_view;
 	bool is_dragging_view;
@@ -316,6 +327,7 @@ private:
 	LuaSerializeConfig config;
 	GameStatePostSerializeData _post_deserialize_data;
         int initial_seed = 0;
+    friend class GameWorld;
 };
 
 void play(const char* sound_path);

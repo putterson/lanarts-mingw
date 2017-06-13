@@ -91,7 +91,7 @@ additive_effect_create = (args) ->
     return _subeffect_effect_create(args, 0, accum)
 
 STANDARD_WEAPON_DPS = 10
-STANDARD_RANGED_DPS = 5
+STANDARD_RANGED_DPS = 7
 
 weapon_create = (args, for_enemy = false) -> 
     damage_multiplier = args.damage_multiplier or 1.0
@@ -106,14 +106,13 @@ weapon_create = (args, for_enemy = false) ->
         args.damage or= {base: {math.floor(damage), math.ceil(damage)}, strength: 0}
     args.power or= {base: {power, power}, strength: 1}
     args.range or= 7
-    items[args.name] = args -- HACK
     Data.weapon_create(args)
 
 spell_create = (args) ->
     proj = args.projectile
     if proj
         damage_multiplier = proj.damage_multiplier or 1.0
-        damage = damage_multiplier * (args.cooldown / 60 * STANDARD_WEAPON_DPS)
+        damage = damage_multiplier * (args.cooldown / 60 * STANDARD_RANGED_DPS)
         proj.name or= args.name
         proj.weapon_class or= "magic"
         proj.spr_item or= "none"
@@ -134,9 +133,9 @@ projectile_create = (args, for_enemy = false) ->
         -- For enemies, we want all damage to come from 'damage'.
         -- The strength and magic stats work differently for enemies thusly.
         args.power or= {base: {0, 0}}
-        damage = damage_multiplier * (args.cooldown / 60 * args.damage)
         args.damage or= {base: {0, 0}, strength: args.damage_type.physical, magic: args.damage_type.magic}
     else
+        --damage = damage_multiplier * (args.cooldown / 60 * args.damage)
         args.damage or= {base: {math.floor(damage), math.ceil(damage)}, strength: 0}
         args.power or= {base: {0, 0}, strength: args.damage_type.physical, magic: args.damage_type.magic}
     args.spr_item or= "none"

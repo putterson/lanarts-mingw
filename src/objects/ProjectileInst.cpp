@@ -40,7 +40,7 @@ ProjectileInst::~ProjectileInst() {
 
 void ProjectileInst::draw(GameState* gs) {
 	GameView& view = gs->view();
-	SpriteEntry& spr = game_sprite_data[sprite()];
+	SpriteEntry& spr = game_sprite_data.get(sprite());
 	int w = spr.width(), h = spr.height();
 	int xx = x - w / 2, yy = y - h / 2;
 
@@ -187,9 +187,12 @@ void ProjectileInst::step(GameState* gs) {
 
             damage *= damage_mult;
 
-            if ( dynamic_cast<PlayerInst*>(origin) && gs->local_player()->current_floor == dynamic_cast<PlayerInst*>(origin)->current_floor) {
-                play(minor_missile_sound, "sound/minor_missile.ogg");
-            }
+			gs->for_screens([&]() {
+				if (dynamic_cast<PlayerInst *>(origin) &&
+					gs->local_player()->current_floor == dynamic_cast<PlayerInst *>(origin)->current_floor) {
+					play(minor_missile_sound, "sound/minor_missile.ogg");
+				}
+			});
             if (!projectile.projectile_entry().deals_special_damage) {
                 char buffstr[32];
                 snprintf(buffstr, 32, "%d", damage);

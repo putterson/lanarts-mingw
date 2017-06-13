@@ -4,6 +4,7 @@
  */
 
 #include <ldraw/lua_ldraw.h>
+#include <ldraw/display.h>
 
 #include <lua.hpp>
 #include <luawrap/luawrap.h>
@@ -79,6 +80,29 @@ static int game_input_capture(lua_State* L) {
 	return 1;
 }
 
+static void game_loop(LuaValue draw_func) {
+	int frames = 0;
+        lua_State* L = draw_func.luastate();
+	while (1) {
+		frames += 1;
+		SDL_Event event;
+	        if (!lua_api::gamestate(L)->update_iostate(true, false)) {
+                    return; // Exit game loop
+                }
+		ldraw::display_draw_start();
+                draw_func.push();
+                lua_pushnumber(L, frames);
+                lua_call(L, 1, 1);
+                bool should_exit = lua_toboolean(L, -1);
+                lua_pop(L, 1);
+		ldraw::display_draw_finish();
+                if (should_exit) {
+                    return; // Exit game loop
+                }
+		SDL_Delay(5);
+	}
+}
+
 static int game_input_clear(lua_State* L) {
     IOController& controller = lua_api::gamestate(L)->io_controller();
     controller.clear();
@@ -91,11 +115,23 @@ static void game_simulate_key_press(LuaStackValue key) {
     controller.set_key_down_state(key.to_num());
 }
 
-static int game_trigger_events(lua_State* L) {
-    IOController& controller = lua_api::gamestate(L)->io_controller();
-    GameView& view = lua_api::gamestate(L)->view();
-    controller.trigger_events(BBox(0, 0, view.width, view.height));
-    return 0;
+static void game_for_screens(LuaStackValue func) {
+	lua_api::gamestate(func)->for_screens([&]() {
+		func.push();
+		lua_call(func.luastate(),  0,0);
+	});
+}
+
+static void game_screen_set(LuaStackValue screen) {
+	lua_api::gamestate(screen)->screens.set_screen(screen.to_int());
+}
+
+static int game_screen_amount(LuaStackValue screen) {
+	return lua_api::gamestate(screen)->screens.amount();
+}
+
+static int game_screen_get(LuaStackValue screen) {
+	return lua_api::gamestate(screen)->screens.amount();
 }
 
 static int game_input_handle(lua_State* L) {
@@ -249,16 +285,20 @@ namespace lua_api {
 		game["step"].bind_function(game_step);
 		game["draw"].bind_function(game_draw);
 		game["raw_event_log"].bind_function(game_raw_event_log);
+		game["for_screens"].bind_function(game_for_screens);
+		game["screen_set"].bind_function(game_screen_set);
+		game["screen_get"].bind_function(game_screen_get);
+		game["screen_amount"].bind_function(game_screen_amount);
                 // Can directly bind event_log_is_active:
 		game["event_log_is_active"].bind_function(event_log_is_active);
                 game["wait"].bind_function(lapi_wait);
 
 		game["input_capture"].bind_function(game_input_capture);
 		game["input_handle"].bind_function(game_input_handle);
+		game["game_loop"].bind_function(game_loop);
 
 		game["_input_clear"].bind_function(game_input_clear);
-        game["_simulate_key_press"].bind_function(game_simulate_key_press);
-        game["_trigger_events"].bind_function(game_trigger_events);
+		game["_simulate_key_press"].bind_function(game_simulate_key_press);
 
 		game["score_board_fetch"].bind_function(score_board_fetch);
 		game["score_board_store"].bind_function(game_score_board_store);

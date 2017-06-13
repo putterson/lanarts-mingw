@@ -205,7 +205,7 @@ static LuaValue lua_combatgameinst_metatable(lua_State* L) {
     LuaValue setters = luameta_getters(meta);
 	luawrap::bind_getter(getters["vx"], &CombatGameInst::vx);
 	luawrap::bind_getter(getters["is_resting"], &CombatGameInst::is_resting);
-    LUAWRAP_GETTER(getters, sprite, game_sprite_data[OBJ->get_sprite()].sprite);
+    LUAWRAP_GETTER(getters, sprite, game_sprite_data.get(OBJ->get_sprite()).sprite);
     luawrap::bind_getter(getters["vy"], &CombatGameInst::vy);
     luawrap::bind_getter(getters["team"], &CombatGameInst::team);
     luawrap::bind_getter(getters["vision_radius"], &CombatGameInst::vision_radius);
@@ -321,7 +321,7 @@ static LuaValue lua_playerinst_metatable(lua_State* L) {
     
 	LUAWRAP_GETTER(methods, has_melee_weapon, !OBJ->weapon().weapon_entry().uses_projectile);
 	LUAWRAP_GETTER(methods, has_ranged_weapon, OBJ->weapon().weapon_entry().uses_projectile);
-	LUAWRAP_GETTER(methods, is_local_player, OBJ->is_local_player());
+	LUAWRAP_GETTER(methods, is_local_player, OBJ->is_focus_player(lua_api::gamestate(L)));
 	LUAWRAP_GETTER(methods, can_benefit_from_rest, OBJ->can_benefit_from_rest());
 	LUAWRAP_METHOD(methods, gain_xp, players_gain_xp(lua_api::gamestate(L), luawrap::get<int>(L, 2)));
 	LUAWRAP_METHOD(methods, reset_rest_cooldown, OBJ->cooldowns().reset_rest_cooldown(REST_COOLDOWN));
@@ -589,8 +589,9 @@ static GameInst* player_create(LuaStackValue args) {
 	using namespace luawrap;
 	GameState* gs = lua_api::gamestate(args);
 	Pos xy = args["xy"].as<Pos>();
-	GameInst* inst = new PlayerInst(CombatStats(), -1, xy, PLAYER_TEAM, false);
-	gs->player_data().register_player(args["name"].to_str(), (PlayerInst*)inst, -1, -1);
+	int team = luawrap::defaulted(args["team"], PLAYER_TEAM);
+	GameInst* inst = new PlayerInst(CombatStats(), -1, xy, team, false);
+	gs->player_data().register_player(args["name"].to_str(), (PlayerInst*)inst, "", true, -1);
 	return initialize_object(gs, inst, args, &base_object_exclusions);
 }
 
@@ -598,7 +599,7 @@ static void player_init(LuaStackValue obj, Pos xy, std::string name) {
 	GameState* gs = lua_api::gamestate(obj);
 	PlayerInst* inst = new PlayerInst(CombatStats(), -1, xy, PLAYER_TEAM, false);
 	GameInstWrap::make_object_ref(obj, inst);
-	gs->player_data().register_player(name, inst, -1, -1);
+	gs->player_data().register_player(name, inst, "", true, -1);
 }
 
 static GameInst* feature_create(LuaStackValue args) {

@@ -24,6 +24,7 @@
 
 #include "objects/CombatGameInst.h"
 #include "objects/GameInst.h"
+#include "objects/PlayerIOActions.h"
 
 const int REST_COOLDOWN = 200;
 // TODO: Now used for all 'major characters', i.e, players, their allies, and bosses
@@ -112,7 +113,8 @@ public:
 
     PlayerDataEntry& player_entry(GameState* gs) const;
 
-    bool is_local_player() {
+    bool is_focus_player(GameState *gs) const;
+    bool is_local_player() const {
         return local;
     }
     void set_local_player(bool islocal) {
@@ -140,7 +142,7 @@ private:
     ///////////////////////////
     // ** Private methods ** //
     ///////////////////////////
-    void enqueue_io_movement_actions(GameState* gs, int& dx, int& dy);
+    void enqueue_io_movement_actions(GameState* gs, float& dx, float& dy);
     bool enqueue_io_spell_actions(GameState* gs, bool* fallback_to_melee);
     bool enqueue_io_spell_and_attack_actions(GameState* gs, float dx, float dy);
     void enqueue_io_equipment_actions(GameState* gs, bool do_stop_action);
@@ -179,7 +181,8 @@ private:
     bool local = false, moving = false;
     int autouse_mana_potion_try_count = 0;
     PosF _last_moved_direction = {0, -1}; // Never 0,0
-    int previous_spellselect = 0, spellselect = 0;
+    int previous_spell_cast = -1, spellselect = 0;
+    PlayerIOActions io_value;
 };
 
 bool find_safest_square(PlayerInst* p, GameState* gs, Pos& position);

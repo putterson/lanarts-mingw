@@ -308,7 +308,7 @@ DataW.enemy_create {
     defeat_message: "The clown mage is defeated."
     stats: {
         attacks: {
-            {projectile: "Magic Blast"}
+            {projectile: "Chain Lightning"}
         }
         hp: 65
         hpregen: 0.03
@@ -321,17 +321,6 @@ DataW.enemy_create {
     }
     effects_active: {"StopOnceInRange", "Enraging"}
 }
-
--- enemy_charge = (caster) ->
---     for target in *Map.enemies_list(caster)
---         if vector_distance({target.x, target.y}, {caster.x, caster.y}) < target.target_radius + caster.target_radius + 30
---             str_diff = math.max(0, caster.stats.strength - target.stats.strength)
---             thrown = target\add_effect("Thrown", 10)
---             thrown.angle = vector_direction({caster.x, caster.y}, {target.x, target.y})
---             if not caster.is_enemy and caster\is_local_player() 
---                 EventLog.add("The " .. target.name .." is thrown back!", {200,200,255})
---             elseif not target.is_enemy and target\is_local_player()
---                 EventLog.add("You are thrown back!", {200,200,255})
 
 DataW.enemy_create {
     name: "Elephant"
@@ -382,8 +371,6 @@ DataW.enemy_create {
     xpaward: 150
     unique: true
     stats: {
-        projectile: {
-        }
         hp: 220
         hpregen: 0.1
         movespeed: 2.5
@@ -391,6 +378,15 @@ DataW.enemy_create {
         magic: 30
         defence: 15
         willpower: 15
+    }
+    projectile: {
+        weapon_class: "magic"
+        damage_type: {magic: 0.5, physical: 0.5}
+        range: 250
+        radius: 11
+        cooldown: 40
+        speed: 8
+        spr_attack: "large fire"
     }
     death_func: () =>
         ItemUtils = require "maps.ItemUtils"
@@ -507,14 +503,6 @@ DataW.enemy_create summoner_base({"Mouther", "Mana Sapper", "Crypt Keeper"}, 3, 
     unique: true
     stats: {
         attacks: {{ weapon: "Basic Melee"}}
-        projectile: { -- Adds to 'attacks'
-            weapon_class: "magic"
-            damage_type: {magic: 0.5, physical: 0.5}
-            range: 300
-            cooldown: 70
-            speed: 8
-            spr_attack: "blue blast"
-        }
         movespeed: 3.5
         hp: 500
         hpregen: 0.15
@@ -522,6 +510,14 @@ DataW.enemy_create summoner_base({"Mouther", "Mana Sapper", "Crypt Keeper"}, 3, 
         magic: 30
         defence: 20
         willpower: 20
+    }
+    projectile: { -- Adds to 'attacks'
+        weapon_class: "magic"
+        damage_type: {magic: 0.5, physical: 0.5}
+        range: 300
+        cooldown: 70
+        speed: 8
+        spr_attack: "blue blast"
     }
 }
 
@@ -534,20 +530,6 @@ DataW.enemy_create {
     appear_message: "A centaur hunter readies his bow."
     defeat_message: "The centaur hunter has been defeated."
     stats: {
-        projectile: {
-            weapon_class: 'bows'
-            damage_type: {physical: 1.0}
-            cooldown: 30
-            speed: 9
-            spr_attack: 'nessos arrows'
-            on_hit_func: (target, atkstats) =>
-                if chance(.25) -- TODO poison resistance
-                    effect = target\add_effect("Poison", 100, atkstats)
-                    effect.damage = atkstats.damage
-                    effect.power = atkstats.power
-                    effect.magic_percentage = atkstats.magic_percentage
-                    effect.physical = atkstats.physical
-        }
         hp: 80
         hpregen: 0.01
         movespeed: 4
@@ -556,6 +538,20 @@ DataW.enemy_create {
         willpower: 8
     }
     effects_active: {"StopOnceInRange"}
+    projectile: {
+        weapon_class: 'bows'
+        damage_type: {physical: 1.0}
+        cooldown: 30
+        speed: 9
+        spr_attack: 'nessos arrows'
+        on_hit_func: (target, atkstats) =>
+            if chance(.25) -- TODO poison resistance
+                effect = target\add_effect("Poison", 100, atkstats)
+                effect.damage = atkstats.damage
+                effect.power = atkstats.power
+                effect.magic_percentage = atkstats.magic_percentage
+                effect.physical = atkstats.physical
+    }
 }
 
 DataW.enemy_create {
@@ -567,20 +563,6 @@ DataW.enemy_create {
     appear_message: "A centaur marksman readies his bow."
     defeat_message: "The centaur marksman has been defeated."
     stats: {
-        projectile: {
-            weapon_class: 'bows'
-            damage_type: {physical: 1.0}
-            cooldown: 30
-            speed: 9
-            spr_attack: 'nessos arrows'
-            on_hit_func: (target, atkstats) =>
-                if chance(.25) -- TODO poison resistance
-                    effect = target\add_effect("Poison", 100, atkstats)
-                    effect.damage = atkstats.damage
-                    effect.power = atkstats.power
-                    effect.magic_percentage = atkstats.magic_percentage
-                    effect.physical = atkstats.physical
-        }
         hp: 120
         hpregen: 0.02
         movespeed: 4
@@ -589,6 +571,20 @@ DataW.enemy_create {
         willpower: 16
     }
     effects_active: {"StopOnceInRange"}
+    projectile: {
+        weapon_class: 'bows'
+        damage_type: {physical: 1.0}
+        cooldown: 30
+        speed: 9
+        spr_attack: 'nessos arrows'
+        on_hit_func: (target, atkstats) =>
+            if chance(.25) -- TODO poison resistance
+                effect = target\add_effect("Poison", 100, atkstats)
+                effect.damage = atkstats.damage
+                effect.power = atkstats.power
+                effect.magic_percentage = atkstats.magic_percentage
+                effect.physical = atkstats.physical
+    }
 }
 
 DataW.enemy_create {
@@ -601,20 +597,6 @@ DataW.enemy_create {
     appear_message: "Nesso readies his bow."
     defeat_message: "Nesso has been defeated."
     stats: {
-        projectile: {
-            weapon_class: 'bows'
-            damage_type: {physical: 1.0}
-            cooldown: 20
-            speed: 9
-            spr_attack: 'nessos arrows'
-            on_hit_func: (target, atkstats) =>
-                if chance(.25) -- TODO poison resistance
-                    effect = target\add_effect("Poison", 100, atkstats)
-                    effect.damage = atkstats.damage
-                    effect.power = atkstats.power
-                    effect.magic_percentage = atkstats.magic_percentage
-                    effect.physical = atkstats.physical
-        }
         hp: 200
         hpregen: 0.02
         movespeed: 4
@@ -623,6 +605,20 @@ DataW.enemy_create {
         willpower: 16
     }
     effects_active: {"StopOnceInRange"}
+    projectile: {
+        weapon_class: 'bows'
+        damage_type: {physical: 1.0}
+        cooldown: 20
+        speed: 9
+        spr_attack: 'nessos arrows'
+        on_hit_func: (target, atkstats) =>
+            if chance(.25) -- TODO poison resistance
+                effect = target\add_effect("Poison", 100, atkstats)
+                effect.damage = atkstats.damage
+                effect.power = atkstats.power
+                effect.magic_percentage = atkstats.magic_percentage
+                effect.physical = atkstats.physical
+    }
 }
 
 DataW.enemy_create {
@@ -633,15 +629,6 @@ DataW.enemy_create {
    appear_message: "A hell-forged creature appears before you!"
    defeat_message: "The hell-forged is destroyed."
    stats: {
-       projectile: {
-           weapon_class: "magic"
-           damage_type: {magic: 0.5, physical: 0.5}
-           range: 250
-           radius: 11
-           cooldown: 40
-           speed: 8
-           spr_attack: "large fire"
-       }
        movespeed: 3.5
        hp: 125
        hpregen: 0.01
@@ -650,6 +637,15 @@ DataW.enemy_create {
        defence: 25
        willpower: 25
     }
+   projectile: {
+       weapon_class: "magic"
+       damage_type: {magic: 0.5, physical: 0.5}
+       range: 250
+       radius: 11
+       cooldown: 40
+       speed: 8
+       spr_attack: "large fire"
+   }
 }
 
 -- ELEMENTAL ENEMIES
@@ -662,14 +658,6 @@ DataW.enemy_create {
     radius: 12
     xpaward: 5
     stats: {
-        projectile: {
-            weapon_class: "magic"
-            damage_type: {magic: 1.0}
-            range: 130
-            cooldown: 45
-            speed: 7
-            spr_attack: "storm bolt"
-        }
         movespeed: 2
         hp: 15
         hpregen: 0.02
@@ -677,6 +665,14 @@ DataW.enemy_create {
         magic: 25
         defence: 4
         willpower: 5
+    }
+    projectile: {
+        weapon_class: "magic"
+        damage_type: {magic: 1.0}
+        range: 130
+        cooldown: 45
+        speed: 7
+        spr_attack: "storm bolt"
     }
 }
 
@@ -688,14 +684,6 @@ DataW.enemy_create {
     appear_message: "A storm elemental floats onto the scene."
     defeat_message: "The storm elemental dissolves."
     stats: {
-        projectile: {
-            weapon_class: "magic"
-            damage_type: {magic: 1.0}
-            range: 130
-            cooldown: 45
-            speed: 7
-            spr_attack: "storm bolt"
-        }
         movespeed: 1
         hp: 50
         hpregen: 0.05
@@ -703,6 +691,14 @@ DataW.enemy_create {
         magic: 25
         defence: 6  
         willpower: 8
+    }
+    projectile: {
+        weapon_class: "magic"
+        damage_type: {magic: 1.0}
+        range: 130
+        cooldown: 45
+        speed: 7
+        spr_attack: "storm bolt"
     }
 }
        
@@ -714,14 +710,6 @@ DataW.enemy_create {
     appear_message: "A raging storm elemental appears!"
     defeat_message: "The raging storm elemental dissipates."
     stats: {
-        projectile: {
-            weapon_class: "magic"
-            damage_type: {magic: 1.0}
-            range: 130
-            cooldown: 45
-            speed: 7
-            spr_attack: "storm bolt"
-        }
         movespeed: 2
         hp: 75
         hpregen: 0.05
@@ -729,6 +717,14 @@ DataW.enemy_create {
         magic: 45
         defence: 8
         willpower: 10
+    }
+    projectile: {
+        weapon_class: "magic"
+        damage_type: {magic: 1.0}
+        range: 130
+        cooldown: 45
+        speed: 7
+        spr_attack: "storm bolt"
     }
 }
 
@@ -1134,15 +1130,6 @@ DataW.enemy_create {
     radius: 12
     xpaward: 50
     stats: {
-        projectile: {
-            weapon_class: "magic"
-            damage_type: {magic: 0.5, physical: 0.5}
-            range: 250
-            radius: 11
-            cooldown: 40
-            speed: 8
-            spr_attack: "large fire"
-        }
         hp: 80
         hpregen: 0.1
         movespeed: 2.5
@@ -1150,6 +1137,15 @@ DataW.enemy_create {
         magic: 25
         defence: 5
         willpower: 15
+    }
+    projectile: {
+        weapon_class: "magic"
+        damage_type: {magic: 0.5, physical: 0.5}
+        range: 250
+        radius: 11
+        cooldown: 40
+        speed: 8
+        spr_attack: "large fire"
     }
 }
 
@@ -1210,21 +1206,22 @@ DataW.enemy_create {
     appear_message: "A strange blue metallic creature appears!"
     defeat_message: "The blue metallic creature is broken into scrap."
     stats: {
-        projectile: {
-            weapon_class: "magic"
-            damage_type: {magic: 1.0}
-            range: 65
-            cooldown: 35
-            speed: 7
-            spr_attack: "magic bolt"
-        }
         movespeed: 3
         hp: 65
         hpregen: 0.05
         strength: 20
         magic: 25
-        defence: 10  
+        defence: 10
         willpower: 12
+    }
+    projectile: {
+        weapon_class: "magic"
+        damage_type: {magic: 1.0}
+        range: 65
+        cooldown: 35
+        power: {base: {5, 5}}
+        speed: 7
+        spr_attack: "magic bolt"
     }
 }
 
@@ -1274,20 +1271,20 @@ DataW.enemy_create {
     xpaward: 55
     stats: {
         attacks: { {weapon: "Fast Melee"}}
-        projectile: {
-            weapon_class: "physical"
-            damage_type: {physical: 1.0}
-            range: 300
-            cooldown: 100
-            speed: 9
-            spr_attack: "big stone"
-        }
         hp: 200
         hpregen: 0
         movespeed: 1
         strength: 20
         defence: 10
         willpower: 10
+    }
+    projectile: {
+        weapon_class: "physical"
+        damage_type: {physical: 1.0}
+        range: 300
+        cooldown: 100
+        speed: 9
+        spr_attack: "big stone"
     }
 }
 

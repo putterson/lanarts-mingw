@@ -142,6 +142,8 @@ namespace lua_api {
 	void register_lua_core_Bresenham(lua_State* L);
 	void register_lua_core_PathFinding(lua_State* L);
 	void register_lua_core_Keyboard(lua_State* L);
+	void register_lua_core_Gamepad(lua_State* L);
+	void register_lua_core_GameActions(lua_State* L);
 	void register_lua_core_Mouse(lua_State* L);
 	void register_lua_core_MiscSpellAndItemEffects(lua_State* L);
 	void register_lua_core_Serialization(lua_State* L);
@@ -182,7 +184,7 @@ namespace lua_api {
 		lua_spelltarget_bindings(L);
 
 		// New-style API
-                if (std::getenv("LANARTS_HEADLESS") == NULL) {
+                if (getenv("LANARTS_HEADLESS") == NULL) {
                     register_lua_core_Display(L);
                 }
 		register_lua_core_RVOWorld(L);
@@ -192,6 +194,8 @@ namespace lua_api {
 		register_lua_core_GameMap(L);
 		register_lua_core_GameWorld(L);
 		register_lua_core_Keyboard(L);
+		register_lua_core_Gamepad(L);
+		register_lua_core_GameActions(L);
                 register_lua_core_MiscSpellAndItemEffects(L);
                 register_lua_core_Mouse(L);
 	}
@@ -203,6 +207,9 @@ namespace lua_api {
 		register_general_api(L);
 		lua_effectivestats_bindings(gs, L);
 		lua_combatstats_bindings(gs, L);
+
+        register_lua_core_MiscSpellAndItemEffects(L);
+        register_lua_core_Mouse(L);
 		register_lua_core_Serialization(L);
 		register_lua_core_GameState(L);
 	}

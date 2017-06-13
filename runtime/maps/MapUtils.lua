@@ -43,7 +43,6 @@ function M.spawn_enemy(map, type, tile_xy)
     }
     table.insert(map.instances, object)
     return object
-
 end
 
 function M.spawn_epic_store(map, items, tile_xy)
@@ -162,7 +161,7 @@ end
 
 function M.map_create(label, size, content, --[[Optional]] flags)
     return SourceMap.map_create { 
-        rng = mtwist.create(random(0, 2 ^ 31)),
+        rng = mtwist.create(random(0, 2 ^ 30)),
     	label = label, 
     	size = size, 
         post_maps = {}, 

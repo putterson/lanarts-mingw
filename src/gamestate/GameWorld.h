@@ -23,6 +23,7 @@
 
 #include "PlayerData.h"
 #include "Team.h"
+#include "GameState.h"
 
 class GameState;
 class GameMapState;
@@ -44,9 +45,7 @@ public:
 	GameMapState* map_create(const Size& size, ldungeon_gen::MapPtr source_map, bool wandering_enabled = true);
 
 	void reset();
-	GameMapState* get_current_level() {
-		return lvl;
-	}
+	GameMapState* get_current_level();
 	void set_current_level(GameMapState* level);
 	PlayerData& player_data() {
 		return _player_data;
@@ -87,10 +86,9 @@ private:
 	GameMapState* lvl;
 	GameState* gs;
 	LuaValue lua_level_states;
-        bool _should_sync_states = false;
+	bool _should_sync_states = false;
 	std::vector<GameMapState*> level_states;
-        Pos last_player_pos = {0,0};
-        TeamData _team_data;
+	TeamData _team_data;
 };
 
 #endif /* GAMEWORLD_H_ */

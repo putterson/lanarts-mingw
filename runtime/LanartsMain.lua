@@ -47,13 +47,6 @@ function Engine.resources_load(...)
         return ret
     end
 
-    _G.items = {}
-    _G.spells = {}
-    _G.effects = {}
-    _G.enemies = {}
-    _G.sprites = {}
-    _G.projectiles = {}
-    _G.classes = {}
     -- DO NOT mess with the order of these willy nilly.
     _req "effects.Effects"
     _req "spells.Spells"
@@ -128,6 +121,25 @@ end
 
 function Engine.post_serialize()
 
+end
+
+function Engine.io()
+    --local Gamepad = require "input.Gamepad"
+    --Gamepad.step_for_all()
+end
+
+function Engine.player_input(player)
+    local Gamepad = require "core.Gamepad"
+    local ids = Gamepad.ids()
+    for i=2,10 do
+        if player.name == "Player " .. tostring(i) then
+            return (require "input.GamepadInputSource").create(player, ids[i-1])
+        end
+    end
+    --if #ids > 0 then
+    --    return (require "input.GamepadInputSource").create(player, ids[1])
+    --end
+    return (require "input.KeyboardInputSource").create(player)
 end
 
 -- Same steps:

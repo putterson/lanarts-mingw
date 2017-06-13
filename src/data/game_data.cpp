@@ -24,20 +24,12 @@
 #include "stats/items/WeaponEntry.h"
 #include "stats/items/WeaponEntry.h"
 
+#include "data/ResourceDataSet.h"
+
 #include "game_data.h"
 
 /* Components of init_game_data */
 void load_tile_data(const FilenameList& filenames);
-void load_tileset_data(const FilenameList& filenames);
-LuaValue load_sprite_data(lua_State* L, const FilenameList& filenames);
-
-LuaValue load_item_data(lua_State* L, const FilenameList& filenames);
-void load_equipment_data(lua_State* L, const FilenameList& filenames,
-		LuaValue* itemtable);
-LuaValue load_projectile_data(lua_State* L, const FilenameList& filenames,
-		LuaValue& itemstable);
-void load_weapon_data(lua_State* L, const FilenameList& filenames,
-		LuaValue* itemstable = NULL);
 void lapi_data_create_enemy(const LuaStackValue& table);
 void lapi_data_create_item(const LuaStackValue& table);
 void lapi_data_create_class(const LuaStackValue& table);
@@ -46,38 +38,31 @@ void lapi_data_create_effect(const LuaStackValue& table);
 void lapi_data_create_projectile(const LuaStackValue& table);
 void lapi_data_create_equipment(const LuaStackValue& table);
 void lapi_data_create_weapon(const LuaStackValue& table);
-LuaValue load_spell_and_effect_data(lua_State* L, const FilenameList& filenames);
-
-LuaValue load_enemy_data(lua_State* L, const FilenameList& filenames);
-LuaValue load_class_data(lua_State* L, const FilenameList& filenames);
 
 /* Definition of game data */
 
-std::vector<ClassEntry> game_class_data;
-std::vector<EffectEntry> game_effect_data;
-std::vector<EnemyEntry> game_enemy_data;
+ResourceDataSet<ClassEntry> game_class_data;
+ResourceDataSet<EffectEntry> game_effect_data;
+ResourceDataSet<EnemyEntry> game_enemy_data;
 std::vector<TileEntry> game_tile_data;
-std::vector<TilesetEntry> game_tileset_data;
-std::vector<SpellEntry> game_spell_data;
-std::vector<SpriteEntry> game_sprite_data;
+ResourceDataSet<TilesetEntry> game_tileset_data;
+ResourceDataSet<SpellEntry> game_spell_data;
+ResourceDataSet<SpriteEntry> game_sprite_data;
 
 template<typename T>
-static int get_X_by_name(const T& t, const char* name, bool error_if_not_found =
+static int get_X_by_name(T& t, const char* name, bool error_if_not_found =
 		true) {
-	for (int i = 0; i < t.size(); i++) {
-		if (name == t.at(i).name) {
-			return i;
-		}
-	}
-	if (error_if_not_found) {
-		/*Error if resource not found*/
-		fprintf(stderr, "Failed to load resource!\nname: %s, of type %s\n",
-				name, typeid(t[0]).name());
-		fflush(stderr);
-		LANARTS_ASSERT(false /*resource not found*/);
-	}
-	return -1;
+    typename T::id_t id = t.get_id(name);
+    if (id == T::id_t::NONE && error_if_not_found) {
+       /*Error if resource not found*/
+       fprintf(stderr, "Failed to load resource!\nname: %s, of type %s\n",
+                       name, typeid(t.get(0)).name());
+       fflush(stderr);
+       LANARTS_ASSERT(false /*resource not found*/);
+    }
+	return (int)id;
 }
+
 template<typename E>
 static E& get_X_ref_by_name(std::vector<E>& t, const char* name) {
 	for (int i = 0; i < t.size(); i++) {
@@ -129,7 +114,15 @@ spell_id get_spell_by_name(const char* name) {
 	return get_X_by_name(game_spell_data, name);
 }
 tile_id get_tile_by_name(const char* name) {
-	return get_X_by_name(game_tile_data, name);
+    int id = 0;
+    for (auto& entry : game_tile_data) {
+        if (entry.name == name) {
+            return id;
+        }
+        id++;
+    }
+    LANARTS_ASSERT(false);
+    return NONE;
 }
 
 TileEntry& get_tile_entry(tile_id id) {
@@ -160,9 +153,9 @@ sprite_id sprite_from_lua(lua_State* L, int idx) {
 spell_id spell_from_lua(lua_State* L, int idx) {
 	return get_X_by_name(game_spell_data, lua_tostring(L, idx));
 }
-tile_id tile_from_lua(lua_State* L, int idx) {
-	return get_X_by_name(game_tile_data, lua_tostring(L, idx));
-}
+//tile_id tile_from_lua(lua_State* L, int idx) {
+//	return get_X_by_name(game_tile_data, lua_tostring(L, idx));
+//}
 effect_id effect_from_lua(lua_State* L, int idx) {
 	return get_X_by_name(game_effect_data, lua_tostring(L, idx));
 }
@@ -179,142 +172,48 @@ tileset_id tileset_from_lua(lua_State* L, int idx) {
 	return get_X_by_name(game_tileset_data, lua_tostring(L, idx));
 }
 
-LuaValue lua_sprites, lua_armours, lua_enemies, lua_weapons,
-		lua_projectiles, lua_items, lua_classes, lua_spells;
-
-LuaValue lua_settings;
-
-static void update_loading_screen(lua_State* L, int percent, const char* task) {
-	luawrap::globals(L)["Engine"].push();
-
-	lua_getfield(L, -1, "loading_screen_draw");
-	if (!lua_isnil(L, -1)) {
-		luawrap::call<void>(L, percent, task);
-	}
-
-	/* pop engine table */
-	lua_pop(L, 1);
-}
-
 template<class T>
 static void __lua_init(lua_State* L, T& t) {
 	for (int i = 0; i < t.size(); i++)
 		t[i].init(L);
 }
 
+LuaValue load_sprite_data(lua_State* L, const FilenameList& filenames);
 void init_game_data(lua_State* L) {
-	LuaSpecialValue globals = luawrap::globals(L);
+    game_class_data.init(L);
+    game_effect_data.init(L);
+	game_item_data.init(L);
+    game_enemy_data.init(L);
+    game_tile_data.clear();
+    game_tileset_data.init(L);
+    game_spell_data.init(L);
+    game_sprite_data.init(L);
+
+    LuaSpecialValue globals = luawrap::globals(L);
+    globals["classes"] = game_class_data.get_raw_data();
+	globals["effects"] = game_effect_data.get_raw_data();
+	globals["items"] = game_item_data.get_raw_data();
+    globals["enemies"] = game_enemy_data.get_raw_data();
+    globals["spells"] = game_spell_data.get_raw_data();
+    globals["sprites"] = game_sprite_data.get_raw_data();
+
         // D: The table that holds all the resource data
 	LuaValue D = luawrap::ensure_table(globals["Data"]);
 
         // Compatibility
 	DataFiles dfiles = load_datafilenames("datafiles.yaml");
 	load_tile_data(dfiles.tile_files);
-        load_sprite_data(L, dfiles.sprite_files);
+    load_sprite_data(L, dfiles.sprite_files);
 
-        D["enemy_create"].bind_function(lapi_data_create_enemy);
-        D["class_create"].bind_function(lapi_data_create_class);
-        D["item_create"].bind_function(lapi_data_create_item);
-        D["spell_create"].bind_function(lapi_data_create_spell);
-        D["effect_create"].bind_function(lapi_data_create_effect);
-        D["projectile_create"].bind_function(lapi_data_create_projectile);
-        D["equipment_create"].bind_function(lapi_data_create_equipment);
-        D["weapon_create"].bind_function(lapi_data_create_weapon);
+    D["enemy_create"].bind_function(lapi_data_create_enemy);
+    D["class_create"].bind_function(lapi_data_create_class);
+    D["item_create"].bind_function(lapi_data_create_item);
+    D["spell_create"].bind_function(lapi_data_create_spell);
+    D["effect_create"].bind_function(lapi_data_create_effect);
+    D["projectile_create"].bind_function(lapi_data_create_projectile);
+    D["equipment_create"].bind_function(lapi_data_create_equipment);
+    D["weapon_create"].bind_function(lapi_data_create_weapon);
 }
-
-//void init_game_data(GameSettings& settings, lua_State* L) {
-//	LuaSpecialValue globals = luawrap::globals(L);
-//
-//	DataFiles dfiles = load_datafilenames("datafiles.yaml");
-//
-////NB: Do not re-order the way resources are loaded unless you know what you're doing!
-////For example, all item data types must be loaded before room generation data
-//
-//	load_tile_data(dfiles.tile_files);
-//	lua_sprites = load_sprite_data(L, dfiles.sprite_files);
-//	lua_sprites.clear();
-//	load_tileset_data(dfiles.tileset_files);
-//
-//	update_loading_screen(L, 0, "Loading Items");
-//	// --- ITEM DATA ---
-//	// TODO: Go to new system
-//	lua_items = load_item_data(L, FilenameList());
-//        // Ensure we have access to the items table for purposes of equipment/spell definition: 
-//	globals["items"] = lua_items;
-//	update_loading_screen(L, 10, "Loading Projectiles");
-//
-//	lua_projectiles = load_projectile_data(L, dfiles.projectile_files,
-//			lua_items);
-//	update_loading_screen(L, 20, "Loading Spells");
-//
-//	// Effects MUST be before spells, as effects are also loaded in spells currently
-//	// TODO move effects completely to Lua
-//	lua_spells = load_spell_and_effect_data(L, dfiles.spell_files);
-//	update_loading_screen(L, 30, "Loading Weapons");
-//
-//	load_weapon_data(L, dfiles.weapon_files, &lua_items);
-//	update_loading_screen(L, 40, "Loading Equipment");
-//
-//	// TODO clean this up
-//
-//	load_equipment_data(L, dfiles.equipment_files, &lua_items);
-//	update_loading_screen(L, 50, "Loading Enemies");
-//	// --- ITEM DATA ---
-//
-//	lua_enemies = load_enemy_data(L, dfiles.enemy_files);
-//	update_loading_screen(L, 60, "Loading Item Generation Templates");
-//
-//	update_loading_screen(L, 90, "Loading Classes");
-//	lua_classes = load_class_data(L, FilenameList());
-//	update_loading_screen(L, 100, "Complete!");
-//
-//	LuaValue weapons = luawrap::ensure_table(globals["weapons"]);
-//	int ind = 0;
-//	for (int i = 0; i < game_item_data.size(); i++) {
-//		ItemEntry& ientry = get_item_entry(i);
-//		if (dynamic_cast<WeaponEntry*>(&ientry)) {
-//			WeaponEntry& entry = get_weapon_entry(i);
-//
-//			weapons[++ind] = lua_items[entry.name];
-//		}
-//	}
-//	LuaValue armour = luawrap::ensure_table(globals["armour"]);
-//	ind = 0;
-//	for (int i = 0; i < game_item_data.size(); i++) {
-//		ItemEntry& ientry = get_item_entry(i);
-//		if (dynamic_cast<EquipmentEntry*>(&ientry)) {
-//			if (dynamic_cast<WeaponEntry*>(&ientry) || dynamic_cast<ProjectileEntry*>(&ientry)) {
-//				continue;
-//			}
-//			ItemEntry& entry = get_item_entry(i);
-//
-//			armour[++ind] = lua_items[entry.name];
-//		}
-//	}
-//	LuaValue consumables = luawrap::ensure_table(globals["consumable"]);
-//	for (int i = 0; i < game_item_data.size(); i++) {
-//		ItemEntry& ientry = get_item_entry(i);
-//		if (!dynamic_cast<EquipmentEntry*>(&ientry)) {
-//			ItemEntry& entry = get_item_entry(i);
-//
-//			consumables[entry.name] = lua_items[entry.name];
-//		}
-//	}
-//	globals["enemies"] = lua_enemies;
-//	globals["projectiles"] = lua_projectiles;
-//	globals["spells"] = lua_spells;
-//	globals["classes"] = lua_classes;
-//
-//	__lua_init(L, game_enemy_data);
-//
-//	for (int i = 0; i < game_item_data.size(); i++) {
-//		game_item_data[i]->initialize(L);
-//	}
-//
-//	for (int i = 0; i < game_spell_data.size(); i++) {
-//		game_spell_data[i].initialize(L);
-//	}
-//}
 
 static void luayaml_push(LuaValue& value, lua_State* L, const char* name) {
 	value.push();
@@ -323,14 +222,14 @@ static void luayaml_push(LuaValue& value, lua_State* L, const char* name) {
 	lua_replace(L, tableind);
 }
 void luayaml_push_item(lua_State* L, const char* name) {
-	luayaml_push(lua_items, L, name);
+	luayaml_push(game_item_data.get_raw_data(), L, name);
 	LANARTS_ASSERT(!lua_isnil(L, -1));
 }
 void luayaml_push_sprites(lua_State* L, const char* name) {
-	luayaml_push(lua_sprites, L, name);
+	luayaml_push(game_sprite_data.get_raw_data(), L, name);
 	LANARTS_ASSERT(!lua_isnil(L, -1));
 }
 void luayaml_push_enemies(lua_State* L, const char* name) {
-	luayaml_push(lua_enemies, L, name);
+	luayaml_push(game_enemy_data.get_raw_data(), L, name);
 	LANARTS_ASSERT(!lua_isnil(L, -1));
 }

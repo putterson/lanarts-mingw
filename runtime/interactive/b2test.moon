@@ -79,7 +79,7 @@ create_polygons = (world) ->
         make_dynamic_shape(world, size, position)
 
 TIME_STEP = 1.0 / 60
-ITERS = 1
+ITERS = 10
 make_simulation = (outer_area) ->
     -- Create drawing engine
     drawer = b2.GLDrawer()
@@ -102,7 +102,8 @@ make_simulation = (outer_area) ->
         return min_body, min_d
     return {
         step: () =>
-            for i=1,60
+            t = timer_create()
+            for i=1,1--0--60
                 for body in *polygons
                     pos = body\GetPosition()
                     if pos.x < 1 or pos.x > WIDTH - 1 or pos.y < 1 or pos.y > HEIGHT - 1
@@ -114,11 +115,12 @@ make_simulation = (outer_area) ->
                     --dx, dy = tx - pos.x, ty - pos.y
                     mag = math.sqrt(dx*dx + dy*dy) 
                     --if mag > 20
-                    dx = dx / mag --* body\GetMass()
-                    dy = dy / mag --* body\GetMass()
+                    dx = dx / mag * 1024 --* body\GetMass()
+                    dy = dy / mag * 1024 --* body\GetMass()
                     -- TODO test for lingering objects to teleport them
                     body\SetLinearVelocity(b2.Vec2(dx, dy))
                 world\Step(TIME_STEP, ITERS, ITERS)
+            print(t\get_microseconds() / 1000)
             world\DrawDebugData()
             for body in *polygons
                 pos = body\GetPosition()
@@ -129,7 +131,7 @@ make_simulation = (outer_area) ->
                 Display.set_drawing_region({0, 0, WIDTH, HEIGHT})
                 FONT\draw({color: color, origin: Display.CENTER}, {pos.x, pos.y}, text)
     }
-    
+
 main = () ->
     enclosure = {
         {0,0},

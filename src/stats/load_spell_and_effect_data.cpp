@@ -17,10 +17,9 @@
 
 using namespace std;
 
-extern std::vector<SpellEntry> game_spell_data;
-extern std::vector<EffectEntry> game_effect_data;
-extern std::vector<ItemEntry*> game_item_data;
-
+extern ResourceDataSet<SpellEntry> game_spell_data;
+extern ResourceDataSet<EffectEntry> game_effect_data;
+extern ResourceDataSet<ItemEntry*> game_item_data;
 
 void lapi_data_create_spell(const LuaStackValue& table) {
 	SpellEntry entry;
@@ -28,7 +27,7 @@ void lapi_data_create_spell(const LuaStackValue& table) {
 	entry.init(idx, table);
         LuaValue spell_table = luawrap::globals(table.luastate())["spells"];
 	spell_table[idx+1] = table;
-	game_spell_data.push_back(entry);
+	game_spell_data.new_entry(entry.name, entry);
 }
 
 
@@ -84,7 +83,8 @@ static EffectEntry parse_effect(const LuaStackValue& table) {
 }
 
 void lapi_data_create_effect(const LuaStackValue& table) {
-    game_effect_data.push_back(parse_effect(table));
+    EffectEntry entry = parse_effect(table);
+    game_effect_data.new_entry(entry.name, entry);
 }
 
 
@@ -96,8 +96,6 @@ static ProjectileEntry* parse_projectile(const LuaStackValue& table) {
 
 void lapi_data_create_projectile(const LuaStackValue& table) {
     ProjectileEntry* entry = parse_projectile(table);
-    entry->name = table["name"].to_str();
-    LuaField items = luawrap::globals(table.luastate())["items"];
-    items[entry->name] = table;
-    game_item_data.push_back(entry);
+        entry->name = table["name"].to_str();
+        game_item_data.new_entry(entry->name, entry, table);
 }

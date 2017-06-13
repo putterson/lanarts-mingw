@@ -9,6 +9,7 @@
 #include <ldraw/draw.h>
 #include <ldraw/Font.h>
 #include <ldraw/DrawOptions.h>
+#include <ldraw/display.h>
 
 #include "draw/colour_constants.h"
 
@@ -74,7 +75,7 @@ static const int player_colours_n = sizeof(player_colours) / sizeof(Colour);
 
 ChatMessage GameChat::get_field_as_chat_message(GameState* gs,
 		bool include_username) const {
-	int colour_idx = gs->player_data().local_player_data().net_id
+	int colour_idx = gs->local_player_data().net_id
 			% player_colours_n;
 
 	ChatMessage typed_message;
@@ -91,6 +92,7 @@ void GameChat::draw_player_chat(GameState* gs) const {
 	const ldraw::Font& font = gs->font();
 	const int padding = 5;
 	int line_sep = font.height() + 2;
+	ldraw::display_set_window_region(gs->screens.window_region());
 
 	Size vsize(gs->view().size());
 	Size chat_size(vsize.w, 100);

@@ -122,18 +122,22 @@ void PlayerInst::enqueue_io_equipment_actions(GameState* gs,
 	bool used_item = false;
 
 //Item use
-	IOEvent::event_t item_events[] = {IOEvent::USE_ITEM_N, IOEvent::SELL_ITEM_N};
 	for (int i = 0; i < 9 && !used_item; i++) {
-	    for (auto& event : item_events) {
-            if (io.query_event(IOEvent(event, i))) {
-                if (inventory().get(i).amount() > 0) {
-                    item_used = true;
-                    GameAction::action_t action_type = (event == IOEvent::USE_ITEM_N ? GameAction::USE_ITEM : GameAction::SELL_ITEM);
-                    queued_actions.push_back(
-                            GameAction(id, action_type, frame, level, i, p.x, p.y));
-                }
+        if (io_value.use_item_slot() == i) {
+            if (inventory().get(i).amount() > 0) {
+                item_used = true;
+                GameAction::action_t action_type = GameAction::USE_ITEM;
+                queued_actions.push_back(
+                        GameAction(id, action_type, frame, level, i, p.x, p.y));
             }
-	    }
+        } else if (io_value.sell_item_slot() == i) {
+            if (inventory().get(i).amount() > 0) {
+                item_used = true;
+                GameAction::action_t action_type = GameAction::SELL_ITEM;
+                queued_actions.push_back(
+                        GameAction(id, action_type, frame, level, i, p.x, p.y));
+            }
+        }
 	}
 	if (!used_item && gs->game_settings().autouse_health_potions
 			&& core_stats().hp < AUTOUSE_HEALTH_POTION_THRESHOLD) {
@@ -277,35 +281,35 @@ Pos PlayerInst::direction_towards_unexplored(GameState* gs) {
     return {dx, dy};
 }
 
-void PlayerInst::enqueue_io_movement_actions(GameState* gs, int& dx, int& dy) {
+void PlayerInst::enqueue_io_movement_actions(GameState* gs, float& dx, float& dy) {
 //Arrow/wasd movement
-	if (gs->key_down_state(SDLK_UP) || gs->key_down_state(SDLK_w)) {
-		dy -= 1;
-	}
-	if (gs->key_down_state(SDLK_RIGHT) || gs->key_down_state(SDLK_d)) {
-		dx += 1;
-	}
-	if (gs->key_down_state(SDLK_DOWN) || gs->key_down_state(SDLK_s)) {
-		dy += 1;
-	}
-	if (gs->key_down_state(SDLK_LEFT) || gs->key_down_state(SDLK_a)) {
-		dx -= 1;
-	}
+//	if (io_value.move_direction().y < 0) {
+//		dy -= 1;
+//	}
+//    if (io_value.move_direction().x > 0) {
+//		dx += 1;
+//	}
+//    if (io_value.move_direction().y > 0) {
+//		dy += 1;
+//	}
+//    if (io_value.move_direction().x < 0) {
+//		dx -= 1;
+//	}
+        dx = io_value.move_direction().x;
+        dy = io_value.move_direction().y;
         bool explore_used = false;
         if (dx == 0 && dy == 0) {
-            if (gs->key_down_state(SDLK_e) && (is_ghost() || !has_visible_monster(gs, this))) {
+            if (io_value.should_explore() && (is_ghost() || !has_visible_monster(gs, this))) {
                 explore_used = true;
                 Pos towards = direction_towards_unexplored(gs);
                 if (towards != Pos{0,0}) {
                     dx = towards.x;
                     dy = towards.y;
                 } else {
-                    gs->game_chat().add_message("There is nothing to travel to in sight!",
-                                    Colour(255, 100, 100));
+                    gs->game_chat().add_message("There is nothing to travel to in sight!", Colour(255, 100, 100));
                 }
-            } else if (gs->key_down_state(SDLK_e)) {
-                gs->game_chat().add_message("Deal with the enemy before exploring!",
-                                Colour(255, 100, 100));
+            } else if (io_value.should_explore()) {
+                gs->game_chat().add_message("Deal with the enemy before exploring!", Colour(255, 100, 100));
             }
         }
 	if (dx != 0 || dy != 0) {
@@ -326,11 +330,17 @@ void PlayerInst::enqueue_actions(const ActionQueue& queue) {
 }
 
 void PlayerInst::enqueue_io_actions(GameState* gs) {
-	LANARTS_ASSERT(is_local_player() && gs->local_player() == this);
+	LANARTS_ASSERT(is_focus_player(gs) && gs->local_player() == this);
 
 	if (actions_set_for_turn) {
 		return;
 	}
+
+    if (io_value.value.empty()) {
+        luawrap::globals(gs->luastate())["Engine"]["player_input"].push();
+        io_value.init(luawrap::call<LuaValue>(gs->luastate(), this));
+    }
+    io_value.poll_input();
 
 	bool single_player = (gs->player_data().all_players().size() <= 1);
 
@@ -339,7 +349,7 @@ void PlayerInst::enqueue_io_actions(GameState* gs) {
 	GameSettings& settings = gs->game_settings();
 	GameView& view = gs->view();
 
-	PlayerDataEntry& pde = gs->player_data().local_player_data();
+	PlayerDataEntry& pde = gs->local_player_data();
 
 	if (pde.action_queue.has_actions_for_frame(gs->frame())) {
 		pde.action_queue.extract_actions_for_frame(queued_actions, gs->frame());
@@ -351,7 +361,7 @@ void PlayerInst::enqueue_io_actions(GameState* gs) {
 		gs->set_repeat_actions_counter(settings.frame_action_repeat);
 	}
 
-	int dx = 0, dy = 0;
+	float dx = 0, dy = 0;
 	bool mouse_within = gs->mouse_x() < gs->view().width;
 	int rmx = view.x + gs->mouse_x(), rmy = view.y + gs->mouse_y();
 
@@ -368,12 +378,9 @@ void PlayerInst::enqueue_io_actions(GameState* gs) {
 		do_stopaction = true;
 	}
 //Shifting target
-	if (gs->key_press_state(SDLK_k)) {
+	if (io_value.should_shift_autotarget()) {
 		shift_autotarget(gs);
 	}
-
-	if (gs->key_press_state(SDLK_m))
-		spellselect = -1;
 
 	bool attack_used = false;
 	if (!gs->game_hud().handle_io(gs, queued_actions)) {
@@ -381,16 +388,19 @@ void PlayerInst::enqueue_io_actions(GameState* gs) {
 		enqueue_io_equipment_actions(gs, do_stopaction);
 	}
 
-	bool action_usage = io.query_event(IOEvent::ACTIVATE_SPELL_N)
-			|| io.query_event(IOEvent::USE_WEAPON)
-			|| io.query_event(IOEvent::AUTOTARGET_CURRENT_ACTION)
-			|| io.query_event(IOEvent::MOUSETARGET_CURRENT_ACTION);
-	if ((do_stopaction && !action_usage) || gs->key_down_state(SDLK_PERIOD)
-			|| gs->mouse_downwheel()) {
+	bool action_usage = io_value.use_spell_slot() != NO_ITEM
+            || io_value.use_item_slot() != NO_ITEM
+			|| io_value.should_use_weapon()
+			|| io_value.target_position() != PosF()
+			|| io_value.should_explore()
+            || io_value.move_direction() != PosF();
+
+    // No other way to use portal but to stop-move without doing other actions:
+	if ((do_stopaction && !action_usage)) {
 		queue_portal_use(gs, this, queued_actions);
 	}
 
-// If we haven't done anything, rest
+    // If we haven't done anything, rest
 	if (queued_actions.empty()) {
 		queued_actions.push_back(game_action(gs, this, GameAction::USE_REST));
 	}
@@ -461,9 +471,7 @@ void PlayerInst::pickup_item(GameState* gs, const GameAction& action) {
                 // Do nothing, as commanded by Lua
         } else if (type.id == get_item_by_name("Gold")) {
 		gold(gs) += amnt;
-                //if (gs->local_player() == this) {
-                    play("sound/gold.ogg");
-                //}
+        play("sound/gold.ogg");
 	} else {
 		itemslot_t slot = inventory().add(type);
 		if (slot == -1) {
@@ -472,9 +480,7 @@ void PlayerInst::pickup_item(GameState* gs, const GameAction& action) {
 				this->last_chosen_weaponclass)) {
 			projectile_smart_equip(inventory(), slot);
 		}
-                //if (gs->local_player() == this) {
-                    play("sound/item.ogg");
-                //}
+        play("sound/item.ogg");
 	}
 
 	if (!inventory_full) {
@@ -520,9 +526,11 @@ void PlayerInst::drop_item(GameState* gs, const GameAction& action) {
 		itemslot.deequip();
 		itemslot.remove_copies(dropped_item.amount);
 	}
-	if (this->local) {
-		gs->game_hud().reset_slot_selected();
-	}
+    gs->for_screens([&]() {
+        if (this->local) {
+            gs->game_hud().reset_slot_selected();
+        }
+    });
 }
 
 void PlayerInst::purchase_from_store(GameState* gs, const GameAction& action) {
@@ -537,6 +545,11 @@ void PlayerInst::purchase_from_store(GameState* gs, const GameAction& action) {
 	LANARTS_ASSERT(dynamic_cast<StoreInst*>(gs->get_instance(action.use_id)));
 	StoreInventory& inv = store->inventory();
 	StoreItemSlot& slot = inv.get(action.use_id2);
+        if (slot.item.id == NO_ITEM) {
+            // For some reason this item isn't here anymore (e.g, both players try to buy same item)
+            // Just return.
+            return;
+        }
 	if (gold(gs) >= slot.cost) {
 		inventory().add(slot.item);
 		gold(gs) -= slot.cost;
@@ -553,11 +566,13 @@ void PlayerInst::reposition_item(GameState* gs, const GameAction& action) {
         if (action.use_id != action.use_id2) {
             play("sound/inventory_sound_effects/leather_inventory.ogg");
         }
-	gs->game_hud().reset_slot_selected();
+    gs->for_screens([&]() {
+        gs->game_hud().reset_slot_selected();
+    });
 }
 
 void PlayerInst::perform_action(GameState* gs, const GameAction& action) {
-	event_log("Player id=%d performing act=%d, xy=(%d,%d), frame=%d, origin=%d, room=%d, use_id=%d, use_id2=%d\n",
+	event_log("Player id=%d performing act=%d, xy=(%.2f,%.2f), frame=%d, origin=%d, room=%d, use_id=%d, use_id2=%d\n",
 			this->player_entry(gs).net_id,
 			action.act, action.action_x,
 			action.action_y, action.frame, action.origin, action.room,
@@ -680,10 +695,12 @@ void PlayerInst::use_item(GameState* gs, const GameAction& action) {
 				&& item_check_lua_prereq(L, type, this)) {
 			item_do_lua_action(L, type, this,
 					Pos(action.action_x, action.action_y), item.amount);
-			if (is_local_player() && !type.inventory_use_message().empty()) {
-				gs->game_chat().add_message(type.inventory_use_message(),
-						Colour(100, 100, 255));
-			}
+            gs->for_screens([&](){
+                if (is_focus_player(gs) && !type.inventory_use_message().empty()) {
+                    gs->game_chat().add_message(type.inventory_use_message(),
+                            Colour(100, 100, 255));
+                }
+            });
 			if (item.is_projectile())
 				itemslot.clear();
 			else
@@ -712,14 +729,20 @@ void PlayerInst::sell_item(GameState* gs, const GameAction& action) {
             int gold_gained = type.sell_cost() * sell_amount;
             auto message = format("Transaction: %s x %d for %d GP.", type.name.c_str(), sell_amount, gold_gained);
             item.remove_copies(sell_amount);
-            gs->game_chat().add_message(message, COL_PALE_YELLOW);
+            gs->for_screens([&](){
+                gs->game_chat().add_message(message, COL_PALE_YELLOW);
+            });
             gold(gs) += gold_gained;
             play("sound/inventory_sound_effects/sellbuy.ogg");
         } else {
-            gs->game_chat().add_message("Cannot sell this item!", COL_RED);
+            gs->for_screens([&](){
+                gs->game_chat().add_message("Cannot sell this item!", COL_RED);
+            });
         }
     } else {
-        gs->game_chat().add_message("Cannot sell currently equipped items!", COL_RED);
+        gs->for_screens([&](){
+            gs->game_chat().add_message("Cannot sell currently equipped items!", COL_RED);
+        });
     }
 }
 
@@ -755,7 +778,7 @@ void PlayerInst::use_move(GameState* gs, const GameAction& action) {
         }
 
         // Get the move direction:
-	int dx = action.action_x, dy = action.action_y;
+	float dx = action.action_x, dy = action.action_y;
         // Multiply by the move speed to get the displacement. 
         // Note that players technically move faster when moving diagonally.
 	float ddx = dx * mag, ddy = dy * mag;
@@ -818,10 +841,12 @@ void PlayerInst::use_dngn_portal(GameState* gs, const GameAction& action) {
             return;
         }
 	if (!effective_stats().allowed_actions.can_use_stairs) {
-		if (is_local_player()) {
-			gs->game_chat().add_message(
-					"You cannot use the exit in this state!");
-		}
+        gs->for_screens([&](){
+            if (is_focus_player(gs)) {
+                gs->game_chat().add_message(
+                        "You cannot use the exit in this state!");
+            }
+        });
 		return;
 	}
 
@@ -829,47 +854,51 @@ void PlayerInst::use_dngn_portal(GameState* gs, const GameAction& action) {
         if (portal == NULL) {
             return;
         }
-        if (gs->local_player()->current_floor == current_floor) {
-            play("sound/stairs.ogg");
-        }
-	cooldowns().reset_stopaction_timeout(50);
-	portal->player_interact(gs, this);
-	reset_rest_cooldown();
+        cooldowns().reset_stopaction_timeout(50);
+        portal->player_interact(gs, this);
+        reset_rest_cooldown();
+        // Play sounds and write to chat
+        gs->for_screens([&](){
+            if (gs->local_player()->current_floor == current_floor) {
+                play("sound/stairs.ogg");
+            }
 
-	std::string subject_and_verb = "You travel";
-	if (!is_local_player()) {
-		subject_and_verb = player_entry(gs).player_name + " travels";
-	}
+            std::string subject_and_verb = "You travel";
+            if (!is_focus_player(gs)) {
+                subject_and_verb = player_entry(gs).player_name + " travels";
+            }
 
-	const std::string& map_label =
-			gs->game_world().get_level(current_floor)->label();
+            const std::string& map_label =
+                    gs->game_world().get_level(current_floor)->label();
 
-	bool label_has_digit = false; // Does it have a number in the label?
-	for (int i = 0; i < map_label.size(); i++) {
-		if (isdigit(map_label[i])) {
-			label_has_digit = true;
-			break;
-		}
-	}
-
-	gs->game_chat().add_message(
-			format("%s to %s%s", subject_and_verb.c_str(),
-					label_has_digit ? "" : "the ", map_label.c_str()),
-			is_local_player() ? COL_WHITE : COL_YELLOW);
-        if (map_label == "Plain Valley") {
-            loop("sound/overworld.ogg");
-        } else {
-            loop("sound/dungeon.ogg");
-        }
+            bool label_has_digit = false; // Does it have a number in the label?
+            for (int i = 0; i < map_label.size(); i++) {
+                if (isdigit(map_label[i])) {
+                    label_has_digit = true;
+                    break;
+                }
+            }
+            gs->game_chat().add_message(
+                format("%s to %s%s", subject_and_verb.c_str(),
+                    label_has_digit ? "" : "the ", map_label.c_str()),
+                is_focus_player(gs) ? COL_WHITE : COL_YELLOW);
+            if (map_label == "Plain Valley") {
+                loop("sound/overworld.ogg");
+            } else {
+                loop("sound/dungeon.ogg");
+            }
+        });
 }
 
 void PlayerInst::gain_xp(GameState* gs, int xp) {
 	int levels_gained = stats().gain_xp(xp, this);
 	if (levels_gained > 0) {
 		char level_gain_str[128];
-		snprintf(level_gain_str, 128, "%s reached level %d!",
-				is_local_player() ? "You have" : "Your ally has",
-				class_stats().xplevel);
-		gs->game_chat().add_message(level_gain_str, Colour(50, 205, 50));
+        gs->for_screens([&]() {
+            snprintf(level_gain_str, 128, "%s reached level %d!",
+                     is_focus_player(gs) ? "You have" : "Your ally has",
+                    class_stats().xplevel);
+            gs->game_chat().add_message(level_gain_str, Colour(50, 205, 50));
+        }, true);
 	}
 }

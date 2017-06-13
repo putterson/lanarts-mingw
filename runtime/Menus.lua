@@ -104,24 +104,24 @@ end
 function setup_start_menu()
     if os.getenv("LANARTS_CLIENT") then
 	settings.connection_type = Network.CLIENT
-        settings.class_type = 0
+        settings.class_type = ""
         exit_menu()
         return
     elseif os.getenv("LANARTS_FIGHTER") then
-        settings.class_type = 1
+        settings.class_type = "Fighter"
         exit_menu()
         return
     elseif os.getenv("LANARTS_ARCHER") then
-        settings.class_type = 2
+        settings.class_type = "Archer"
         exit_menu()
         return
     elseif os.getenv("LANARTS_MAGE") then
-        settings.class_type = 0
+        settings.class_type = "Mage"
         exit_menu()
         return
     elseif os.getenv("LANARTS_SERVER") then
 	settings.connection_type = Network.SERVER
-        settings.class_type = 1
+        settings.class_type = "Fighter"
         exit_menu()
         return
     elseif argv_configuration.load_file then -- Global from GlobalVariableSetup.lua
@@ -162,7 +162,7 @@ function setup_settings_menu()
     
     menu_state.back = setup_start_menu
     menu_state.continue = function ()
-        if settings.class_type ~= -1 then
+        if settings.class_type ~= "" then
             exit_menu()
         end
     end

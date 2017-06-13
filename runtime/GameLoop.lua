@@ -96,7 +96,7 @@ function M.overlay_draw()
         fps_timer:start()
         fps_count = 0
     end
-    HelpOverlay.draw()
+    --HelpOverlay.draw()
 end
 
 function M.run_loop()
@@ -135,7 +135,9 @@ function M.run_loop()
         end
 
         if Keys.key_pressed(Keys.ESCAPE) then 
-            EventLog.add("Press Shift + Esc to exit, your progress will be saved.")
+            GameState.for_screens(function()
+                EventLog.add("Press Shift + Esc to exit, your progress will be saved.")
+            end)
         end
 
         local steponly = (GameState.frame % settings.steps_per_draw ~= 0)

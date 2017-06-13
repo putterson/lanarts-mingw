@@ -37,20 +37,12 @@ void PlayerData::remove_all_players(GameState* gs) {
 	}
 }
 void PlayerData::clear() {
-	_local_player_idx = -1;
 	_players.clear();
 }
 
 void PlayerData::register_player(const std::string& name, PlayerInst* player,
-		class_id classtype, int net_id) {
-	_players.push_back(PlayerDataEntry(name, player, classtype, net_id));
-}
-
-PlayerInst* PlayerData::local_player() {
-	if (_local_player_idx >= _players.size()) {
-		return NULL;
-	}
-	return local_player_data().player();
+		const std::string& classtype, bool is_local_player, int net_id) {
+	_players.push_back(PlayerDataEntry(name, player, classtype, is_local_player, net_id, /*Player index, for convenience: */ _players.size()));
 }
 
 std::vector<PlayerInst*> PlayerData::players_in_level(level_id level) {
@@ -76,7 +68,6 @@ bool PlayerData::level_has_player(level_id level) {
 }
 
 void PlayerData::copy_to(PlayerData& pc) const {
-	pc._local_player_idx = _local_player_idx;
 	pc._players = _players;
 	LANARTS_ASSERT(false /*This has to be fixed to work with object ids!*/);
 }
@@ -95,17 +86,12 @@ static void read_inst_ref(GameInstRef& ref, GameState* gs,
 }
 
 void PlayerData::serialize(GameState* gs, SerializeBuffer& serializer) {
-	serializer.write_int(_local_player_idx);
 	serializer.write_int(_money);
 	serializer.write_container(_kill_amounts);
 	serializer.write_int(_players.size());
 	for (int i = 0; i < _players.size(); i++) {
 		write_inst_ref(_players[i].player_inst, gs, serializer);
 	}
-}
-
-PlayerDataEntry& PlayerData::local_player_data() {
-	return _players.at(_local_player_idx);
 }
 
 PlayerDataEntry& PlayerData::get_entry_by_netid(int netid) {
@@ -120,7 +106,6 @@ PlayerDataEntry& PlayerData::get_entry_by_netid(int netid) {
 }
 
 void PlayerData::deserialize(GameState* gs, SerializeBuffer & serializer) {
-	serializer.read_int(_local_player_idx);
 	serializer.read_int(_money);
 	serializer.read_container(_kill_amounts);
 
@@ -202,21 +187,6 @@ bool players_poll_for_actions(GameState* gs) {
 	return true;
 }
 
-void PlayerData::set_local_player_idx(int idx) {
-	if (_local_player_idx != -1) {
-		PlayerInst* oldlocal = local_player();
-		if (oldlocal) {
-			oldlocal->set_local_player(false);
-		}
-	}
-	_local_player_idx = idx;
-	if (_local_player_idx != -1) {
-		PlayerInst* newlocal = local_player();
-		if (newlocal) {
-			newlocal->set_local_player(true);
-		}
-	}
-}
 
 //for (int i = 0; i < pids.size(); i++) {
 //	PlayerInst* player = (PlayerInst*)gs->get_instance(pids[i]);

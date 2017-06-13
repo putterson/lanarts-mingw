@@ -36,6 +36,7 @@ namespace ldungeon_gen {
 		uint16_t must_be_on_bits;
 		uint16_t must_be_off_bits;
 		uint16_t must_be_content;
+		uint16_t must_be_group;
 		bool use_must_be_content;
 
 		Selector(uint16_t must_be_on_bits, uint16_t must_be_off_bits,
@@ -43,13 +44,15 @@ namespace ldungeon_gen {
 						must_be_on_bits(must_be_on_bits),
 						must_be_off_bits(must_be_off_bits),
 						must_be_content(must_be_content),
+						must_be_group(-1),
 						use_must_be_content(true) {
 		}
 
 		Selector(uint16_t must_be_on_bits = 0, uint16_t must_be_off_bits = 0) :
 						must_be_on_bits(must_be_on_bits),
 						must_be_off_bits(must_be_off_bits),
-						must_be_content(0),
+						must_be_content(-1),
+						must_be_group(-1),
 						use_must_be_content(false) {
 		}
 
@@ -57,6 +60,7 @@ namespace ldungeon_gen {
 			return must_be_on_bits == o.must_be_on_bits
 					&& must_be_off_bits == o.must_be_off_bits
 					&& must_be_content == o.must_be_content
+					&& must_be_group == o.must_be_group
 					&& use_must_be_content == o.use_must_be_content;
 		}
 	};
@@ -69,7 +73,7 @@ namespace ldungeon_gen {
 		uint16_t turn_off_bits;
 		uint16_t flip_bits;
 		uint16_t content_value;
-		bool use_content_value;
+		uint16_t group_value;
 
 		Operator(uint16_t turn_on_bits, uint16_t turn_off_bits, uint16_t flip_bits,
 				uint16_t content_value) :
@@ -77,22 +81,22 @@ namespace ldungeon_gen {
 						turn_off_bits(turn_off_bits),
 						flip_bits(flip_bits),
 						content_value(content_value),
-						use_content_value(true) {
+                                                group_value(-1) {
 		}
 
 		Operator(uint16_t turn_on_bits = 0, uint16_t turn_off_bits = 0, uint16_t flip_bits = 0) :
 						turn_on_bits(turn_on_bits),
 						turn_off_bits(turn_off_bits),
 						flip_bits(flip_bits),
-						content_value(0),
-						use_content_value(false) {
+						content_value(-1),
+                                                group_value(-1) {
 		}
 		bool operator==(const Operator& o) {
 			return turn_on_bits == o.turn_on_bits
 					&& turn_off_bits == o.turn_off_bits
 					&& flip_bits == o.flip_bits
 					&& content_value == o.content_value
-					&& use_content_value == o.use_content_value;
+					&& group_value == o.group_value;
 		}
 	};
 
@@ -130,16 +134,21 @@ namespace ldungeon_gen {
 					&& ((flags & ~selector.must_be_off_bits)
 							== flags)
 					&& (!selector.use_must_be_content
-							|| content == selector.must_be_content);
+							|| content == selector.must_be_content)
+					&& (selector.must_be_group == uint16_t(-1)
+							|| group == selector.must_be_group);
 		}
 		inline void apply(Operator oper) {
 			/* By turning off first, we can wipe all flags and set new ones */
 			flags &= ~oper.turn_off_bits;
 			flags |= oper.turn_on_bits;
 			flags ^= oper.flip_bits;
-			if (oper.use_content_value) {
+			if (oper.content_value != uint16_t(-1)) {
 				content = oper.content_value;
 			}
+			if (oper.group_value != uint16_t(-1)) {
+				group = oper.group_value;
+                        }
 		}
 		inline void apply(ConditionalOperator oper) {
 			if (matches(oper.selector)) {

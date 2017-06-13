@@ -16,6 +16,7 @@
 #include "lanarts_defines.h"
 
 #include "combat_stats.h"
+#include "data/ResourceDataSet.h"
 
 struct ClassSpell {
 	int xplevel_required;
@@ -65,8 +66,11 @@ struct ClassEntry: public ResourceEntryBase {
 	virtual void parse_lua_table(const LuaValue& table);
 };
 
-extern std::vector<ClassEntry> game_class_data;
+extern ResourceDataSet<ClassEntry> game_class_data;
 class_id get_class_by_name(const char* name);
+inline class_id get_class_by_name(const std::string& name) {
+	return get_class_by_name(name.c_str());
+}
 
 namespace res {
 	::class_id class_id(const char* name);

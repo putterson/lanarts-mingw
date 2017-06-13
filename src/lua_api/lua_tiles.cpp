@@ -29,6 +29,9 @@ static int tile_create(LuaStackValue args) {
 	lua_State* L = args.luastate();
 	TileEntry entry;
 	LuaField images = args["images"];
+    if (args.has("name")) {
+        entry.name = args["name"].to_str();
+    }
 	if (!images.isnil()) {
 		entry.images = images.as<ImageList>();
 	} else {

@@ -21,4 +21,8 @@ stdout.txt
 stderr.txt
 build
 build_debug/
+build_debug_luajit/
 build_release/
+build_release_luajit/
+.idea
+cmake_build*

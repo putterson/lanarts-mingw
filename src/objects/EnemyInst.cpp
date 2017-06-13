@@ -43,7 +43,7 @@
 static const int DEPTH = 50;
 
 static EnemyEntry& __E(enemy_id enemytype) {
-	return game_enemy_data.at(enemytype);
+	return game_enemy_data.get(enemytype);
 }
 
 float monster_difficulty_multiplier(GameState* gs, EnemyEntry& etype) {
@@ -126,7 +126,7 @@ bool EnemyInst::damage(GameState* gs, int dmg) {
 }
 
 EnemyEntry& EnemyInst::etype() {
-	return game_enemy_data.at(enemytype);
+	return game_enemy_data.get(enemytype);
 }
 
 void EnemyInst::init(GameState* gs) {
@@ -196,14 +196,16 @@ void EnemyInst::step(GameState* gs) {
 
 	update_position();
 
-	if (!seen && team == MONSTER_TEAM && gs->object_visible_test(this, gs->local_player())) {
-		seen = true;
-		gs->enemies_seen().mark_as_seen(enemytype);
-                if (gs->local_player()->current_floor == current_floor) {
-                    play(etype().unique ? "sound/boss_appears.ogg" : "sound/see_monster.ogg");
-                }
-		show_appear_message(gs->game_chat(), etype());
-	}
+	gs->for_screens( [&]() {
+		if (!seen && team == MONSTER_TEAM && gs->object_visible_test(this, gs->local_player())) {
+			seen = true;
+			gs->enemies_seen().mark_as_seen(enemytype);
+					if (gs->local_player()->current_floor == current_floor) {
+						play(etype().unique ? "sound/boss_appears.ogg" : "sound/see_monster.ogg");
+					}
+			show_appear_message(gs->game_chat(), etype());
+		}
+	});
 }
 void EnemyInst::draw(GameState* gs) {
 	GameView& view = gs->view();
@@ -300,7 +302,9 @@ void EnemyInst::die(GameState *gs) {
 		CollisionAvoidance& coll_avoid = gs->collision_avoidance();
 		coll_avoid.remove_object(collision_simulation_id());
 
-		show_defeat_message(gs->game_chat(), etype());
+		gs->for_screens( [&]() {
+			show_defeat_message(gs->game_chat(), etype());
+		});
 		if (etype().death_sprite > -1) {
 			const int DEATH_SPRITE_TIMEOUT = 1600;
 			gs->add_instance(

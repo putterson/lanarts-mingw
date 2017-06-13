@@ -68,11 +68,8 @@ static const int GAME_SIDEBAR_WIDTH = 160;
 GameState::GameState(const GameSettings& settings, lua_State* L) :
 		settings(settings),
 		L(L),
-		connection(game_chat(), player_data(), init_data),
+		connection(this),
 		frame_n(0),
-		hud(BBox(settings.view_width - GAME_SIDEBAR_WIDTH, 0, settings.view_width, settings.view_height),
-			BBox(0, 0, settings.view_width - GAME_SIDEBAR_WIDTH, settings.view_height)),
-		_view(0, 0, settings.view_width - GAME_SIDEBAR_WIDTH, settings.view_height),
 		world(this),
 		repeat_actions_counter(0),
 		config(L) {
@@ -115,13 +112,23 @@ void GameState::start_connection() {
 		connection.initialize_as_client(callback, settings.ip.c_str(), settings.port);
 		printf("client connected\n");
 		net_send_connection_affirm(connection, settings.username,
-				settings.class_type);
+				get_class_by_name(settings.class_type));
 	}
 	if (settings.conntype == GameSettings::SERVER
 			|| settings.conntype == GameSettings::NONE) {
-		player_data().set_local_player_idx(0);
-		player_data().register_player(settings.username, NULL,
-				settings.class_type);
+	    player_data().register_player(settings.username, NULL, settings.class_type, /* local player */ true);
+            // Hardcoded for now:
+            int n_extra_players = gamepad_states().size();
+            const char* classes[] = {
+                "Fighter",
+                "Necromancer",
+                "Mage"
+            };
+            for (int i = 0 ; i < n_extra_players; i++) {
+                std::string p = "Player ";
+                p += char('0' + (i+2)); // Start at 'player 2'
+                player_data().register_player(p, NULL, classes[i%3], /* local player */ true);
+            }
 	}
 }
 
@@ -147,41 +154,93 @@ static void _event_log_initialize(GameState* gs, GameSettings& settings) {
 }
 
 bool GameState::start_game() {
-	if (settings.conntype == GameSettings::SERVER) {
-		init_data.frame_action_repeat = settings.frame_action_repeat;
-		init_data.network_debug_mode = settings.network_debug_mode;
-		init_data.regen_on_death = settings.regen_on_death;
-		init_data.time_per_step = settings.time_per_step;
-		net_send_game_init_data(connection, player_data(), init_data);
-		connection.set_accepting_connections(false);
-	}
-	if (!settings.loadreplay_file.empty()) {
-		load_init(this, init_data.seed, settings.class_type);
-	}
-	if (!settings.savereplay_file.empty()) {
-		save_init(this, init_data.seed, settings.class_type);
-	}
+    if (settings.conntype == GameSettings::SERVER) {
+        init_data.frame_action_repeat = settings.frame_action_repeat;
+        init_data.network_debug_mode = settings.network_debug_mode;
+        init_data.regen_on_death = settings.regen_on_death;
+        init_data.time_per_step = settings.time_per_step;
+        net_send_game_init_data(connection, player_data(), init_data);
+        connection.set_accepting_connections(false);
+    }
+    if (!settings.loadreplay_file.empty()) {
+        class_id class_type = -1;
+        load_init(this, init_data.seed, class_type);
+        settings.class_type = game_class_data.get(class_type).name;
+    }
+    if (!settings.savereplay_file.empty()) {
+        class_id class_type = (int) game_class_data.get_id(settings.class_type);
+        save_init(this, init_data.seed, class_type);
+    }
 
-	if (settings.conntype == GameSettings::CLIENT) {
-		while (!init_data.received_init_data && !io_controller().user_has_requested_exit()) {
-			connection.poll_messages(1 /* milliseconds */);
-			if(!update_iostate(false)){
+    if (settings.conntype == GameSettings::CLIENT) {
+        while (!init_data.received_init_data && !io_controller().user_has_requested_exit()) {
+            connection.poll_messages(1 /* milliseconds */);
+            if (!update_iostate(false)) {
                 break;
             }
-		}
-		settings.frame_action_repeat = init_data.frame_action_repeat;
-		settings.network_debug_mode = init_data.network_debug_mode;
-		settings.regen_on_death = init_data.regen_on_death;
-		settings.time_per_step = init_data.time_per_step;
-	}
+        }
+        settings.frame_action_repeat = init_data.frame_action_repeat;
+        settings.network_debug_mode = init_data.network_debug_mode;
+        settings.regen_on_death = init_data.regen_on_death;
+        settings.time_per_step = init_data.time_per_step;
+    }
 
-        initial_seed = init_data.seed;
-	base_rng_state.init_genrand(init_data.seed);
-        /* If class was not set, we may be loading a game -- don't init level */
-	if (settings.class_type != -1) {
+    initial_seed = init_data.seed;
+    base_rng_state.init_genrand(init_data.seed);
+
+
+    screens.clear(); // Clear previous screens
+    int n_local_players = 0;
+    for (PlayerDataEntry &player: player_data().all_players()) {
+        if (player.is_local_player) {
+            n_local_players++;
+        }
+    }
+    // Number of split-screens tiled together
+    int n_x = 1, n_y = 1;
+    if (n_local_players <= 2) {
+        n_x = n_local_players;
+    } else if (n_local_players <= 4) {
+        // More than 2, less than 4? Try 2x2 tiling
+        n_x = 2, n_y = 2;
+    } else if (n_local_players <= 6) {
+        n_x = 3, n_y = 2;
+    } else {
+        LANARTS_ASSERT(n_local_players <= 9);
+        // Last resort, Try 3x3 tiling
+        n_x = 3, n_y = 3;
+    }
+
+    const int WIDTH = settings.view_width / n_x;
+    const int HEIGHT = settings.view_height / n_y; // / N_PLAYERS;
+    std::vector<BBox> bounding_boxes;
+    for (PlayerDataEntry &player: player_data().all_players()) {
+        const int x1 = (player.index % n_x) * WIDTH, y1 = (player.index / n_x) * HEIGHT;
+        bounding_boxes.push_back(BBox {x1, y1, x1 + WIDTH, y1 + HEIGHT});
+    }
+    if (bounding_boxes.size() == 3) {
+        bounding_boxes[1] = {WIDTH, 0, settings.view_width, settings.view_height};
+    }
+
+    for (PlayerDataEntry& player: player_data().all_players()) {
+        if (!player.is_local_player) {
+            continue;
+        }
+        BBox b = bounding_boxes.at(player.index);
+        screens.add({-1, // index placeholder
+            GameHud {
+                BBox(b.x2 - GAME_SIDEBAR_WIDTH, b.y1, b.x2, b.y2),
+                BBox(b.x1, b.y1, b.x2 - GAME_SIDEBAR_WIDTH, b.y2)
+            }, // hud
+            GameView {0, 0, b.width() - GAME_SIDEBAR_WIDTH, b.height()}, // view
+            b, // window_region
+            player.index, // focus player id
+        });
+    }
+    /* If class was not set, we may be loading a game -- don't init level */
+	if (settings.class_type != "") {
 		restart();
 	}
-
 	return true;
 }
 
@@ -191,7 +250,7 @@ void GameState::set_level(GameMapState* lvl) {
 
 /*Handle new characters and exit signals*/
 PlayerInst* GameState::local_player() {
-	return player_data().local_player();
+	return screens.focus_object(this);
 }
 
 int GameState::object_radius_test(int x, int y, int radius, col_filterf f,
@@ -262,11 +321,17 @@ void GameState::deserialize(SerializeBuffer& serializer) {
 	serializer.read_int(this->frame_n);
 	world.deserialize(serializer);
 	player_data().deserialize(this, serializer);
-	world.set_current_level(local_player()->current_floor);
 
-	_view.sharp_center_on(local_player()->ipos());
+        bool first = true;
+        screens.for_each_screen( [&]() {
+            world.set_current_level(local_player()->current_floor);
+            view().sharp_center_on(local_player()->ipos());
+            if (first) {
+                settings.class_type = local_player()->class_stats().class_entry().name;
+                first = false; // HACK to get first player's class
+            }
+        });
 
-	settings.class_type = local_player()->class_stats().classid;
 	post_deserialize_data().process(this);
 	luawrap::globals(L)["Engine"]["post_deserialize"].push();
 	luawrap::call<void>(L);
@@ -333,8 +398,10 @@ void GameState::restart() {
 	set_level(game_world().get_level(levelid));
 //		set_level(game_world().get_level(0, true));
 
-	PlayerInst* p = local_player();
-	view().sharp_center_on(p->x, p->y);
+    screens.for_each_screen( [&]() {
+        PlayerInst *p = local_player();
+        view().sharp_center_on(p->x, p->y);
+    });
 }
 
 int GameState::handle_event(SDL_Event* event, bool trigger_event_handling) {
@@ -342,15 +409,17 @@ int GameState::handle_event(SDL_Event* event, bool trigger_event_handling) {
 		return false;
 	}
 
-	GameMapState* level = get_level();
+    bool should_exit = false;
+    screens.for_each_screen( [&]() {
+        GameMapState* level = get_level();
+        if (trigger_event_handling && level && level->id() != -1) {
+            if (game_hud().handle_event(this, event)) {
+                should_exit = true;
+            }
+        }
+    });
 
-	if (trigger_event_handling && level && level->id() != -1) {
-		if (hud.handle_event(this, event)) {
-			return false;
-		}
-	}
-
-	return iocontroller.handle_event(event);
+	return !should_exit && iocontroller.handle_event(event);
 }
 bool GameState::update_iostate(bool resetprev, bool trigger_event_handling) {
 	/* If 'resetprev', clear the io state for held keys
@@ -365,7 +434,11 @@ bool GameState::update_iostate(bool resetprev, bool trigger_event_handling) {
 			}
 		}
 		/* Fire IOEvents for the current step*/
-		iocontroller.trigger_events(BBox(0, 0, _view.width, _view.height));
+		LuaField io_callback = luawrap::globals(luastate())["Engine"]["io"];
+		if (!io_callback.isnil()) {
+			io_callback.push();
+			luawrap::call<void>(luastate());
+		}
 	} else {
 		iocontroller.update_iostate(false);
 		repeat_actions_counter--;
@@ -385,7 +458,9 @@ bool GameState::step() {
 
         connection.poll_messages();
 
-	hud.step(this);
+    screens.for_each_screen( [&](){
+        game_hud().step(this);
+    });
         // Handles frame_n incrementing and restarting:
 	if (!world.step()) {
 		return false;
@@ -405,18 +480,18 @@ int GameState::key_press_state(int keyval) {
 
 void GameState::adjust_view_to_dragging() {
 	if (!is_dragging_view) {
-		previous_view = _view;
+		previous_view = view();
 	}
 	/*Adjust the view if the player is far from view center,
 	 *if we are following the cursor, or if the minimap is clicked */
 	bool is_dragged = false;
 
 	if (mouse_right_down()) {
-		BBox minimap_bbox = hud.minimap().minimap_bounds(this);
+		BBox minimap_bbox = game_hud().minimap().minimap_bounds(this);
 		if (is_dragging_view || minimap_bbox.contains(mouse_pos())) {
 			Pos minimap_xy = mouse_pos() - minimap_bbox.left_top();
-			Pos world_xy = hud.minimap().minimap_xy_to_world_xy(this, previous_view, minimap_xy);
-			_view.sharp_center_on(world_xy);
+			Pos world_xy = game_hud().minimap().minimap_xy_to_world_xy(this, previous_view, minimap_xy);
+            view().sharp_center_on(world_xy);
 			is_dragged = true;
 		}
 	}
@@ -425,7 +500,7 @@ void GameState::adjust_view_to_dragging() {
 	if (!is_dragged && is_dragging_view) {
 		PlayerInst* p = local_player();
 		if (p) {
-			_view.sharp_center_on(p->x, p->y);
+            view().sharp_center_on(p->x, p->y);
 		}
 	}
 	is_dragging_view = is_dragged;
@@ -448,41 +523,44 @@ void GameState::draw(bool drawhud) {
 
 	ldraw::display_draw_start();
 
-	adjust_view_to_dragging();
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    screens.for_each_screen( [&]() {
+        adjust_view_to_dragging();
 
-	if (drawhud) {
-		ldraw::display_set_drawing_region(
-				BBoxF(0, 0, _view.width, _view.height));
-	} else {
-		ldraw::display_set_drawing_region(
-				BBoxF(0, 0, _view.width + hud.width(), _view.height));
-	}
+        //if (drawhud) {
+        ldraw::display_set_window_region(screens.window_region());
+        //} else {
+        //    ldraw::display_set_window_region(
+        //            BBoxF(0, 0, view().width + game_hud().width(), view().height));
+        //}
 
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	get_level()->tiles().pre_draw(this);
+        get_level()->tiles().pre_draw(this);
 
-	std::vector<GameInst*> safe_copy = get_level()->game_inst_set().to_vector();
-	LuaDrawableQueue::Iterator lua_drawables = get_level()->drawable_queue();
+        std::vector<GameInst *> safe_copy = get_level()->game_inst_set().to_vector();
+        LuaDrawableQueue::Iterator lua_drawables = get_level()->drawable_queue();
 
-	for (size_t i = 0; i < safe_copy.size(); i++) {
-		lua_drawables_draw_below_depth(lua_drawables, safe_copy[i]->depth);
-		safe_copy[i]->draw(this);
-	}
-	lua_drawables_draw_rest(lua_drawables);
+        for (size_t i = 0; i < safe_copy.size(); i++) {
+            lua_drawables_draw_below_depth(lua_drawables, safe_copy[i]->depth);
+            safe_copy[i]->draw(this);
+        }
+        lua_drawables_draw_rest(lua_drawables);
 
-	lua_api::luacall_post_draw(L);
+        lua_api::luacall_post_draw(L);
 
-	monster_controller().post_draw(this);
-	get_level()->tiles().post_draw(this);
-	for (size_t i = 0; i < safe_copy.size(); i++) {
-		safe_copy[i]->post_draw(this);
-	}
-	if (drawhud) {
-		hud.draw(this);
-	}
-
-	lua_api::luacall_overlay_draw(L); // Used for debug purposes
+        monster_controller().post_draw(this);
+        get_level()->tiles().post_draw(this);
+        for (size_t i = 0; i < safe_copy.size(); i++) {
+            safe_copy[i]->post_draw(this);
+        }
+        // Set drawing region to full screen:
+        ldraw::display_set_window_region({0,0,game_settings().view_width, game_settings().view_height});
+        if (drawhud) {
+            game_hud().draw(this);
+        }
+////        ldraw::display_set_window_region(screens.window_region());
+    });
+    lua_api::luacall_overlay_draw(L); // Used for debug purposes
 
 	ldraw::display_draw_finish();
 
@@ -625,6 +703,11 @@ bool GameState::mouse_downwheel() {
 }
 
 /* End mouse click states */
+
+std::vector<IOGamepadState>& GameState::gamepad_states() {
+    return iocontroller.gamepad_states();
+}
+
 GameTiles& GameState::tiles() {
 	return get_level()->tiles();
 }
@@ -641,6 +724,14 @@ level_id GameState::get_level_id() {
 		return -1;
 	}
 	return get_level()->id();
+}
+
+PlayerDataEntry& GameState::local_player_data() {
+    return screens.local_player_data(this);
+}
+
+GameScreen& GameState::get_screen(PlayerInst *player) {
+    return screens.get_screen(this, player);
 }
 
 static std::map<const char*, lsound::Sound> SOUND_MAP;

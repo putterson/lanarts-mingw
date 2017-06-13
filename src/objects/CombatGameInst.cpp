@@ -48,7 +48,7 @@ bool CombatGameInst::damage(GameState* gs, int dmg) {
     event_log("CombatGameInst::damage: id %d took %d dmg\n", id, dmg);
 
     for (Effect& eff : effects.effects) {
-        EffectEntry& entry = game_effect_data[eff.id];
+        EffectEntry& entry = game_effect_data.get(eff.id);
         if (!eff.is_active() || entry.on_damage_func.isnil()) {
             continue;
         }
@@ -208,7 +208,9 @@ bool CombatGameInst::damage(GameState* gs, const EffectiveAttackStats& attack) {
         snprintf(buff, 100, "Attack: [dmg %d pow %d mag %d%%] -> Damage: %d",
                 attack.damage, attack.power, int(attack.magic_percentage * 100),
                 dmg);
-        gs->game_chat().add_message(buff);
+        gs->for_screens( [&] () {
+            gs->game_chat().add_message(buff);
+        });
 
     }
 
@@ -265,7 +267,7 @@ void CombatGameInst::draw(GameState *gs, float frame, float alpha) {
         return;
     }
     GameView& view = gs->view();
-    SpriteEntry& spr = game_sprite_data[sprite];
+    SpriteEntry& spr = game_sprite_data.get(sprite);
     Colour draw_colour = effects.effected_colour();
 
     if (cooldowns().is_hurting()) {
@@ -285,7 +287,7 @@ void CombatGameInst::draw(GameState *gs, float frame, float alpha) {
 }
 
 void CombatGameInst::post_draw(GameState *gs) {
-    SpriteEntry& spr = game_sprite_data[sprite];
+    SpriteEntry& spr = game_sprite_data.get(sprite);
     GameView& view = gs->view();
     int w = spr.size().w, h = spr.size().h;
     int xx = x - w / 2, yy = y - h / 2;
@@ -304,7 +306,7 @@ void CombatGameInst::post_draw(GameState *gs) {
                 y - healthbar_offsety + 5);
         draw_statbar(on_screen(gs, statbox), float(ecore.hp) / ecore.max_hp);
     }
-    if (dynamic_cast<PlayerInst*>(this) && dynamic_cast<PlayerInst*>(this)->is_local_player()) {
+    if (dynamic_cast<PlayerInst*>(this) && dynamic_cast<PlayerInst *>(this)->is_focus_player(gs)) {
         res::sprite("spr_enemies.good_neutral").draw(on_screen(gs, PosF {x-16, y-16}));
         res::sprite("spr_enemies.good_neutral").draw(on_screen(gs, PosF {x-16, y-16}));
     }
@@ -331,14 +333,18 @@ bool CombatGameInst::melee_attack(GameState* gs, CombatGameInst* inst,
         snprintf(buff, 100, "Attack: [dmg %d pow %d mag %d%%] -> Damage: %f",
                 atkstats.damage, atkstats.power, int(atkstats.magic_percentage * 100),
                 damage);
-        gs->game_chat().add_message(buff);
+        gs->for_screens([&](){
+            gs->game_chat().add_message(buff);
+        });
 
     }
 
     if (!dynamic_cast<PlayerInst*>(this)) {
-        if (gs->local_player()->current_floor == current_floor) {
-            play("sound/slash.ogg");
-        }
+        gs->for_screens([&]() {
+            if (gs->local_player()->current_floor == current_floor) {
+                play("sound/slash.ogg");
+            }
+        });
     }
 
     // Callbacks on attacker object:
@@ -346,7 +352,7 @@ bool CombatGameInst::melee_attack(GameState* gs, CombatGameInst* inst,
         if (!eff.is_active()) {
             continue;
         }
-        auto& entry = game_effect_data[eff.id];
+        auto& entry = game_effect_data.get(eff.id);
         if (!entry.on_melee_func.isnil()) {
             entry.on_melee_func.push();
             lua_State* L = gs->luastate();
@@ -368,7 +374,7 @@ bool CombatGameInst::melee_attack(GameState* gs, CombatGameInst* inst,
         if (!eff.is_active()) {
             continue;
         }
-        auto& entry = game_effect_data[eff.id];
+        auto& entry = game_effect_data.get(eff.id);
         if (!entry.on_receive_melee_func.isnil()) {
             entry.on_receive_melee_func.push();
             lua_State* L = gs->luastate();

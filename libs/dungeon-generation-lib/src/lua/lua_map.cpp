@@ -17,6 +17,7 @@
 #include "map_misc_ops.h"
 
 #include "lua_ldungeon_impl.h"
+#include "../ldungeon_assert.h"
 
 namespace ldungeon_gen {
 
@@ -96,7 +97,7 @@ namespace ldungeon_gen {
 		bool has_content = args.has("matches_content");
 		Selector selector(flags_get(args["matches_all"]),
 				flags_get(args["matches_none"]),
-				luawrap::defaulted(args["matches_content"], 0));
+				luawrap::defaulted(args["matches_content"], uint16_t(-1)));
 		selector.use_must_be_content = has_content;
 		return selector;
 	}
@@ -107,11 +108,10 @@ namespace ldungeon_gen {
 
 	/* Parses an 'operators' from a table. All fields are optional. */
 	Operator lua_operator_get(LuaField args) {
-		bool has_content = args.has("content");
 		Operator oper(flags_get(args["add"]), flags_get(args["remove"]),
 				flags_get(args["toggle"]),
-				luawrap::defaulted(args["content"], 0));
-		oper.use_content_value = has_content;
+				luawrap::defaulted(args["content"], uint16_t(-1)));
+                oper.group_value = luawrap::defaulted(args["group"], uint16_t(-1));
 		return oper;
 	}
 
@@ -266,6 +266,25 @@ namespace ldungeon_gen {
 		return ptr;
 	}
 
+	static void map_copy(Map& map1, BBox area1, Map& map2, BBox area2) {
+            LDUNGEON_ASSERT(area1.size() == area2.size());
+            int dx = area2.x1 - area1.x1;
+            int dy = area2.y1 - area1.y1;
+
+            FOR_EACH_BBOX(area1, x, y) {
+                map2[Pos(x + dx, y + dy)] = map1[Pos(x,y)];
+            }
+	}
+	
+        static void lmap_copy(LuaStackValue args) {
+            using namespace luawrap;
+            MapPtr from = args["from"].as<MapPtr>();
+            BBox from_area = defaulted(args["from_area"], BBox(0,0, from->width(), from->height()));
+            MapPtr to = args["to"].as<MapPtr>();
+            BBox to_area = defaulted(args["to_area"], BBox(0,0, to->width(), to->height()));
+            map_copy(*from, from_area, *to, to_area);
+	}
+
 	/*****************************************************************************
 	 *                      Area query helpers                                   *
 	 *****************************************************************************/
@@ -413,7 +432,7 @@ namespace ldungeon_gen {
         int x2 = luaL_checkinteger(L, 4);
         int y = luaL_checkinteger(L, 5) - 1;
         // What to use outside of map bounds?
-        double fill = luaL_checknumber(L, 6);
+        int fill = lua_gettop(L) >= 6 ? luaL_checknumber(L, 6) : 0;
         int w = map->width(), h = map->height();
         Pos pos(x1, y);
         int i = 1;
@@ -558,6 +577,18 @@ namespace ldungeon_gen {
         return area_fully_connected(*map, area, unfilled, mark, marked);
     }
 
+    static void larea_fill_unconnected(LuaStackValue args) {
+        using namespace luawrap;
+        MapPtr map = args["map"].as<MapPtr>();
+        Selector unfilled = lua_selector_get(args["unfilled_selector"]);
+        Pos seed = args["seed"].as<Pos>();
+        Operator mark = lua_operator_get(args["mark_operator"]);
+        Selector marked = lua_selector_get(args["marked_selector"]);
+        Operator fill = lua_operator_get(args["fill_operator"]);
+        BBox area = defaulted(args["area"], BBox(Pos(), map->size()));
+        area_fill_unconnected(*map, area, seed, unfilled, mark, marked, fill);
+    }
+
     static void lerode_diagonal_pairs(LuaStackValue args) {
         using namespace luawrap;
         lua_State* L = args.luastate();
@@ -692,6 +723,7 @@ namespace ldungeon_gen {
 
 	static void lua_register_placement_functions(const LuaValue& submodule) {
 		submodule["map_create"].bind_function(map_create);
+		submodule["map_copy"].bind_function(lmap_copy);
 		submodule["rectangle_operator"].bind_function(rectangle_operator);
 		submodule["tunnel_operator"].bind_function(tunnel_operator);
 		submodule["rectangle_apply"].bind_function(rectangle_apply);
@@ -713,6 +745,7 @@ namespace ldungeon_gen {
         submodule["get_row_content"].bind_function(lget_row_content);
         submodule["erode_diagonal_pairs"].bind_function(lerode_diagonal_pairs);
         submodule["area_fully_connected"].bind_function(larea_fully_connected);
+        submodule["area_fill_unconnected"].bind_function(larea_fill_unconnected);
 
 		LUAWRAP_SET_TYPE(LuaStackValue);
 		LUAWRAP_GETTER(submodule, random_place,

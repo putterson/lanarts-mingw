@@ -33,7 +33,7 @@
 PlayerInst::PlayerInst(const CombatStats& stats, sprite_id sprite, Pos xy, team_id team, bool local) :
 		CombatGameInst(stats, sprite, xy, team, RADIUS, true, DEPTH), actions_set_for_turn(
 				false), local(local), moving(0), autouse_mana_potion_try_count(
-				0), previous_spellselect(0), spellselect(-1) {
+				0), previous_spell_cast(0), spellselect(-1) {
 	last_chosen_weaponclass = "unarmed";
 	field_of_view = new fov();
 }
@@ -94,44 +94,6 @@ void PlayerInst::deinit(GameState* gs) {
 	CombatGameInst::deinit(gs);
 	current_target = NONE;
 	gs->collision_avoidance().remove_object(collision_simulation_id());
-}
-
-static Pos seen_square_in_area(MTwist& mt, GameTiles& tiles) {
-	Pos p, ret;
-	do {
-		p.x = mt.rand(tiles.tile_width());
-		p.y = mt.rand(tiles.tile_height());
-	} while (!tiles.was_seen(p) || tiles.is_solid(p));
-	return centered_multiple(p, TILE_SIZE);
-}
-
-// Assumes overworld == map ID 0
-static void spawn_in_overworld(GameState* gs, PlayerInst* player) {
-	int current_map = gs->game_world().get_current_level_id();
-	int overworld_map = 0;
-	GameMapState* overworld = gs->game_world().get_level(overworld_map);
-	Pos sqr = seen_square_in_area(gs->rng(), overworld->tiles());
-
-	for (int i = 0; i < gs->player_data().all_players().size(); i++) {
-		PlayerDataEntry& pde = gs->player_data().all_players()[i];
-		if (pde.player_inst.get() == player) {
-			pde.action_queue.clear_actions();
-		}
-	}
-
-	gs->game_chat().add_message(
-			player->is_local_player() ?
-					"You have respawned!" : "Your ally has respawned!",
-			Colour(100, 150, 150));
-	if (current_map != overworld_map) {
-		gs->game_world().level_move(player->id, sqr.x, sqr.y, current_map,
-				overworld_map);
-	} else {
-		player->update_position(sqr.x, sqr.y);
-		if (player->is_local_player()) {
-			gs->view().sharp_center_on(player->ipos());
-		}
-	}
 }
 
 //Either finds new or shifts target
@@ -196,7 +158,7 @@ void PlayerInst::step(GameState* gs) {
 	vx = 0, vy = 0;
 
 	CombatGameInst::step(gs);
-	GameView& view = gs->view();
+
 
 	//Stats/effect step
 	if (cooldowns().is_hurting())
@@ -221,9 +183,6 @@ void PlayerInst::step(GameState* gs) {
 	vx = round(vx * 256.0f) / 256.0f;
 	vy = round(vy * 256.0f) / 256.0f;
 
-	if (!gs->key_down_state(SDLK_x) && is_local_player())
-		view.center_on(last_x, last_y);
-
 	update_position(rx + vx, ry + vy);
         if (is_ghost()) {
             stats().core.hp = 0;
@@ -232,6 +191,12 @@ void PlayerInst::step(GameState* gs) {
             effective_stats().core.mp = 0;
             reset_rest_cooldown();
         }
+    gs->for_screens([&]() {
+        if (this == gs->local_player()) {
+            GameView& view = gs->view();
+            view.center_on(last_x, last_y);
+        }
+    });
 }
 
 void PlayerInst::draw(GameState* gs) {
@@ -291,6 +256,7 @@ void PlayerInst::deserialize(GameState* gs, SerializeBuffer& serializer) {
 
 	CollisionAvoidance& coll_avoid = gs->collision_avoidance();
 	collision_simulation_id() = coll_avoid.add_player_object(this);
+	io_value.init(LuaValue());
 }
 
 PlayerInst *PlayerInst::clone() const {
@@ -300,4 +266,8 @@ PlayerInst *PlayerInst::clone() const {
 std::vector<StatusEffect> PlayerInst::base_status_effects(GameState* gs) {
     effect_id id = get_effect_by_name(class_stats().class_entry().name.c_str());
     return {{id, LuaValue(gs->luastate())}};
+}
+
+bool PlayerInst::is_focus_player(GameState *gs) const {
+	return gs->local_player() == this;
 }

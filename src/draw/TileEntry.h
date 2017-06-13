@@ -11,6 +11,7 @@
 #include "data/FilenameList.h"
 
 #include "lanarts_defines.h"
+#include "data/ResourceDataSet.h"
 
 typedef std::vector<ldraw::Image> ImageList;
 

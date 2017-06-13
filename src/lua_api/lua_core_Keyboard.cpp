@@ -42,12 +42,22 @@ static bool key_held(const LuaStackValue& value) {
 	GameState* gs = lua_api::gamestate(value.luastate());
 	return gs->key_down_state(lua_tokeycode(value));
 }
+static bool shift_held(const LuaStackValue& value) {
+	GameState* gs = lua_api::gamestate(value.luastate());
+	return gs->io_controller().shift_held();
+}
+static bool ctrl_held(const LuaStackValue& value) {
+	GameState* gs = lua_api::gamestate(value.luastate());
+	return gs->io_controller().ctrl_held();
+}
 
 namespace lua_api {
 	void register_lua_core_Keyboard(lua_State* L) {
 		LuaValue keys = lua_api::register_lua_submodule(L, "core.Keyboard");
 		keys["key_pressed"].bind_function(key_pressed);
 		keys["key_held"].bind_function(key_held);
+		keys["shift_held"].bind_function(shift_held);
+		keys["ctrl_held"].bind_function(ctrl_held);
 
 		keys["ENTER"] = (int)SDLK_RETURN;
 		keys["TAB"] = (int)SDLK_TAB;
@@ -78,6 +88,16 @@ namespace lua_api {
 		keys["F13"] = (int)SDLK_F13;
 		keys["F14"] = (int)SDLK_F14;
 		keys["F15"] = (int)SDLK_F15;
+		keys["0"] = (int)SDLK_0;
+		keys["1"] = (int)SDLK_1;
+		keys["2"] = (int)SDLK_2;
+		keys["3"] = (int)SDLK_3;
+		keys["4"] = (int)SDLK_4;
+		keys["5"] = (int)SDLK_5;
+		keys["6"] = (int)SDLK_6;
+		keys["7"] = (int)SDLK_7;
+		keys["8"] = (int)SDLK_8;
+		keys["9"] = (int)SDLK_9;
                 keys["a"] = (int)SDLK_a;
                 keys["b"] = (int)SDLK_b;
                 keys["c"] = (int)SDLK_c;

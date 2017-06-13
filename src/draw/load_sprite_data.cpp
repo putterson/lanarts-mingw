@@ -19,39 +19,16 @@
 
 using namespace std;
 
-/* Either given as a list of filenames or a base name, extension,
- * and number of sequentially numbered files */
-static FilenameList parse_imgfilelist(const YAML::Node& node) {
-	int seq = parse_defaulted(node, "variations", 0);
-	bool is_seq = seq > 0;
-
-	FilenameList filenames;
-
-	if (is_seq) {
-		string tilefile = parse_str(node["file"]);
-		std::string ext = parse_str(node["extension"]);
-		for (int i = 0; i < seq; i++) {
-			filenames.push_back(
-					format("%s%d%s", tilefile.c_str(), i, ext.c_str()));
-		}
-	} else {
-		node["file"] >> filenames;
-	}
-	return filenames;
-}
-
 void load_tile_callbackf(const YAML::Node& node, lua_State* L,
 		LuaValue* value) {
 	TileEntry entry;
 	entry.name = parse_str(node["name"]);
-        entry.images = parse_image_list(node["files"]);
+    entry.images = parse_image_list(node["files"]);
 
-	game_tile_data.push_back(entry);
+    game_tile_data.push_back(entry);
 }
 
 void load_tile_data(const FilenameList& filenames) {
-	game_tile_data.clear();
-
 	load_data_impl_template(filenames, "tiles", load_tile_callbackf);
 }
 
@@ -67,7 +44,7 @@ void load_sprite_callbackf(const YAML::Node& node, lua_State* L,
 	SpriteEntry entry = SpriteEntry(parse_str(node["name"]),
 			parse_drawable(node), type_from_str(type),
 			parse_defaulted(node, "colour", Colour()));
-	game_sprite_data.push_back(entry);
+    game_sprite_data.new_entry(entry.name, entry);
 
 	(*value)[entry.name] = entry.sprite;
 }
@@ -79,14 +56,12 @@ static void load_compiled_resources(lua_State* L) {
     LuaValue resources = lua_api::import(L, "compiled.Resources");
     for (string id : resources["resource_id_list"].as<vector<string>>()) {
         SpriteEntry entry { id, resources[id].as<ldraw::Drawable>(), type_from_str(""), Colour() };
-        game_sprite_data.push_back(entry);
+        game_sprite_data.new_entry(entry.name, entry);
     }
 }
 
 LuaValue load_sprite_data(lua_State* L, const FilenameList& filenames) {
 	LuaValue lsprites = luawrap::ensure_table(luawrap::globals(L)["sprites"]);
-
-	game_sprite_data.clear();
 
 	load_data_impl_template(filenames, "sprites", load_sprite_callbackf, L,
 			&lsprites);
