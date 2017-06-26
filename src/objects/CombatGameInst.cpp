@@ -47,9 +47,13 @@ bool CombatGameInst::damage(GameState* gs, int dmg) {
     gs->set_level(gs->get_level(current_floor));
     event_log("CombatGameInst::damage: id %d took %d dmg\n", id, dmg);
 
-    for (Effect& eff : effects.effects) {
+    for (int i = 0; i < effects.effects.size(); i++) {
+        Effect& eff = effects.effects[i];
+        if (!eff.is_active()) {
+            continue;
+        }
         EffectEntry& entry = game_effect_data.get(eff.id);
-        if (!eff.is_active() || entry.on_damage_func.isnil()) {
+        if (entry.on_damage_func.isnil()) {
             continue;
         }
         entry.on_damage_func.push();
@@ -190,22 +194,27 @@ Pos CombatGameInst::direction_towards_object(GameState* gs, col_filterf filter) 
 }
 
 
+static int random_round(MTwist& rng, float f) {
+    float rem = fmod(f, 1.0f);
+    return int((f - rem) + (rng.genrand_real2() < rem ? 1 : 0));
+}
+
 bool CombatGameInst::damage(GameState* gs, const EffectiveAttackStats& attack) {
     event_log("CombatGameInst::damage: id %d getting hit by {cooldown = %d, "
-            "damage=%d, power=%d, magic_percentage=%f, physical_percentage=%f}",
+            "damage=%.2f, power=%.2f, magic_percentage=%f, physical_percentage=%f}",
             id, attack.cooldown, attack.damage, attack.power,
             attack.magic_percentage, 
             attack.physical_percentage());
 
     float fdmg = damage_formula(attack, effective_stats());
-    if (fdmg < 1 && gs->rng().randf() < fdmg) {
-        fdmg = 1;
+    int dmg = random_round(gs->rng(), fdmg);
+    if (dmg == 0) {
+        return false; // Do nothing if damage is 0
     }
-    int dmg = fdmg;
 
     if (gs->game_settings().verbose_output) {
         char buff[100];
-        snprintf(buff, 100, "Attack: [dmg %d pow %d mag %d%%] -> Damage: %d",
+        snprintf(buff, 100, "Attack: [dmg %.2f pow %.2f mag %d%%] -> Damage: %d",
                 attack.damage, attack.power, int(attack.magic_percentage * 100),
                 dmg);
         gs->for_screens( [&] () {
@@ -312,6 +321,13 @@ void CombatGameInst::post_draw(GameState *gs) {
     }
 }
 
+float lua_hit_callback(lua_State* L, LuaValue& callback,
+                            const EffectiveAttackStats& atkstats, float damage, GameInst* obj,
+                            GameInst* target); // Defined in ProjectileInst.cpp TODO organize better
+
+void lua_attack_stats_callback(lua_State* L, LuaValue& callback,
+		EffectiveAttackStats& atkstats, GameInst* obj, GameInst* target);
+
 bool CombatGameInst::melee_attack(GameState* gs, CombatGameInst* inst,
         const Item& weapon, bool ignore_cooldowns, float damage_multiplier) {
     event_log("CombatGameInst::melee_attack: id %d hitting id %d, weapon = id %d\n", id, inst->id,     weapon.id);
@@ -326,11 +342,16 @@ bool CombatGameInst::melee_attack(GameState* gs, CombatGameInst* inst,
     EffectiveAttackStats atkstats = effective_atk_stats(mt,
             AttackStats(weapon));
 
+    // Modify the attack stat function:
+    lua_attack_stats_callback(gs->luastate(), weapon.weapon_entry().attack_stat_func, atkstats, this, inst); 
     float damage = damage_formula(atkstats, inst->effective_stats()) * damage_multiplier;
 
+    damage = lua_hit_callback(gs->luastate(),
+                              weapon.weapon_entry().action_func().get(gs->luastate()),
+                              atkstats, damage, this, inst);
     if (gs->game_settings().verbose_output) {
         char buff[100];
-        snprintf(buff, 100, "Attack: [dmg %d pow %d mag %d%%] -> Damage: %f",
+        snprintf(buff, 100, "Attack: [dmg %.2f pow %.2f mag %d%%] -> Damage: %f",
                 atkstats.damage, atkstats.power, int(atkstats.magic_percentage * 100),
                 damage);
         gs->for_screens([&](){
@@ -348,7 +369,8 @@ bool CombatGameInst::melee_attack(GameState* gs, CombatGameInst* inst,
     }
 
     // Callbacks on attacker object:
-    for (Effect& eff : effects.effects) {
+    for (int i = 0; i < effects.effects.size(); i++) {
+        Effect& eff = effects.effects[i];
         if (!eff.is_active()) {
             continue;
         }
@@ -458,7 +480,7 @@ bool CombatGameInst::projectile_attack(GameState* gs, CombatGameInst* inst,
     if (!cooldowns().can_doaction())
         return false;
 
-    event_log("CombatGameInst::projectile_attack: id %d hitting id %d, weapon = id %d\n", id, inst->id, weapon.id);
+    event_log("CombatGameInst::projectile_attack: id %d hitting id %d, weapon = id %d\n", id, inst ? inst->id : 0, weapon.id);
     MTwist& mt = gs->rng();
 
     WeaponEntry& wentry = weapon.weapon_entry();
@@ -470,7 +492,8 @@ bool CombatGameInst::projectile_attack(GameState* gs, CombatGameInst* inst,
     attack.projectile = projectile;
     EffectiveAttackStats atkstats = effective_atk_stats(mt, attack);
 
-    Pos p(inst->x, inst->y);
+    Pos target_p = inst == NULL ? Pos(x + gs->rng().rand(-32, 32), y + gs->rng().rand(-32, 32)) : inst->ipos();
+    Pos p = target_p;
     if (dynamic_cast<EnemyInst*>(this) && dynamic_cast<EnemyInst*>(this)->etype().name == "Ogre Mage") {
         p.x += gs->rng().rand(-199, +200);
         p.y += gs->rng().rand(-199, +200);
@@ -478,8 +501,7 @@ bool CombatGameInst::projectile_attack(GameState* gs, CombatGameInst* inst,
         p.x += gs->rng().rand(-12, +13);
         p.y += gs->rng().rand(-12, +13);
         if (gs->tile_radius_test(p.x, p.y, 10)) {
-            p.x = inst->x;
-            p.y = inst->y;
+            p = target_p;
         }
     }
 
@@ -490,21 +512,24 @@ bool CombatGameInst::projectile_attack(GameState* gs, CombatGameInst* inst,
     int range = pentry.range();
 
     bool has_greater_fire = (effects.get_active("AmuletGreaterFire") != NULL);
-    if (pentry.name == "Mephitize" || pentry.name == "Trepidize" || (has_greater_fire && pentry.name == "Fire Bolt")) {
+    bool is_spread_spell = pentry.name == "Mephitize" || pentry.name == "Purple Dragon Projectile";
+    if (is_spread_spell || pentry.name == "Trepidize" || (has_greater_fire && pentry.name == "Fire Bolt")) {
           float vx = 0, vy = 0;
           ::direction_towards(Pos {x, y}, p, vx, vy, 10000);
-          int directions = (pentry.name == "Mephitize" ? 16 : 4);
+          int directions = (is_spread_spell ? 16 : 4);
 
           for (int i = 0; i < directions; i++) {
               const float PI =3.141592;
               float angle = PI / directions * 2 * i;
               Pos new_target {x + cos(angle) * vx - sin(angle) * vy, y + cos(angle) * vy + sin(angle) * vx};
-              GameInst* pinst = new ProjectileInst(projectile, atkstats, id, ipos(), new_target, pentry.speed, pentry.range(), NONE);
+              GameInst* pinst = new ProjectileInst(projectile, atkstats, id, ipos(), new_target, pentry.speed, pentry.range(), 
+                NONE, pentry.can_wall_bounce, pentry.number_of_target_bounces, pentry.can_pass_through);
               gs->add_instance(pinst);
           }
       } else {
           GameInst* bullet = new ProjectileInst(projectile, atkstats, id, Pos(x, y),
-            p, pentry.speed, range);
+            p, pentry.speed, range,
+            NONE, pentry.can_wall_bounce, pentry.number_of_target_bounces, pentry.can_pass_through);
           gs->add_instance(bullet);
     }
     cooldowns().reset_action_cooldown(

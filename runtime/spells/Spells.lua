@@ -2,7 +2,9 @@ local EventLog = require "ui.EventLog"
 local GameObject = require "core.GameObject"
 local GameState = require "core.GameState"
 local Map = require "core.Map"
+local DataW = require "DataWrapped"
 local Bresenham = require "core.Bresenham"
+local EffectUtils = require "spells.EffectUtils"
 local SpellObjects = require "objects.SpellObjects"
 
 -- Effects:
@@ -188,6 +190,7 @@ local Pain = {
     can_cast_with_cooldown = false,
     mp_cost = 0,
     cooldown = 30,
+    types = {"Black"},
     fallback_to_melee = true,
     range = 50
 }
@@ -214,7 +217,10 @@ function Pain.action_func(caster, x, y, target)
     aura.animation_only = true
     aura.range = eff_range
     play_pained_sound()
-    if target:damage(random(1,5) + stats.magic, random(2,5) + stats.magic * 0.3, 1, 0.9) then
+    local damage, power = random(3, 9), random(2,5) + stats.magic
+    power = power + EffectUtils.get_power(caster, "Black")
+    damage = damage * EffectUtils.get_resistance(target, "Black")
+    if target:damage(damage, power, 1) then
         play_sound "sound/painkill.ogg"
         caster:gain_xp_from(target)
         if caster:has_effect("AmuletGreatPain") then
@@ -256,7 +262,7 @@ function Pain.autotarget_func(caster)
     return caster.x, caster.y
 end
 
-Data.spell_create(Pain)
+DataW.spell_create(Pain)
 
 -- HEAL AURA --
 
@@ -364,7 +370,8 @@ function GreaterPain.action_func(caster, x, y, target)
     local stats = caster:effective_stats()
     caster:direct_damage(40)
     caster:add_effect("Pained", 50)
-    caster:add_effect("Pain Aura", 100).range = GreaterPain.range + caster.stats.level * 5
+    local power = EffectUtils.get_power(caster, "Black")
+    caster:add_effect("Pain Aura", 100 + power * 25).range = GreaterPain.range + (caster.stats.level + power)* 5
     GameState.for_screens(function() 
         if caster:is_local_player() then
             EventLog.add("You attack nearby enemies life force directly!", {200,200,255})

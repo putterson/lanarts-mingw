@@ -35,6 +35,10 @@ static int game_score_board_store(lua_State* L) {
 	return 0;
 }
 
+static int game_mark_loading(lua_State* L) {
+    lua_api::gamestate(L)->is_loading_save() = true;
+    return 0;
+}
 static void game_load(LuaStackValue filename) {
         // std::ifstream file(filename, std::ios::binary | std::ios::ate);
         // std::streamsize size = file.tellg();
@@ -44,8 +48,8 @@ static void game_load(LuaStackValue filename) {
 	FILE* file = fopen(filename.as<const char*>(), "rb");
 	SerializeBuffer sb(file, SerializeBuffer::INPUT);
 	lua_api::gamestate(filename)->deserialize(sb);
-        // Ensure no class is chosen, otherwise the game will do an incorrect form of restart where levels are still generated:
-        lua_api::gamestate(filename)->game_settings().class_type = -1; 
+	// Ensure game state is set to 'loading'; this signals that the game state should not be started anew
+	lua_api::gamestate(filename)->is_loading_save() = true;
 	fclose(file);
 }
 
@@ -282,6 +286,7 @@ namespace lua_api {
 		game["save"].bind_function(game_save);
 		game["load"].bind_function(game_load);
 
+		game["mark_loading"].bind_function(game_mark_loading);
 		game["step"].bind_function(game_step);
 		game["draw"].bind_function(game_draw);
 		game["raw_event_log"].bind_function(game_raw_event_log);

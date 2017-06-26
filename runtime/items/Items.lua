@@ -48,6 +48,24 @@ Data.item_create {
 }
 
 Data.item_create {
+    name = "Magentite Key",
+    description = "Now that you have picked up this key, you can open Magentite doors.",
+    type = "key",
+    spr_item = "spr_keys.magentite_key",
+    pickup_func = function(self, user)
+        if not GlobalData.keys_picked_up[self.name] then
+            play_sound "sound/win sound 2-1.ogg"
+        end
+        GlobalData.keys_picked_up[self.name] = true 
+    end,
+    prereq_func = function (self, user)
+        return false
+    end,
+    sellable = false,
+    stackable = false
+}
+
+Data.item_create {
     name = "Burgundite Key",
     description = "Now that you have picked up this key, you can open Burgundite doors.",
     type = "key",
@@ -85,6 +103,7 @@ for _, entry in ipairs {
                 play_sound "sound/win sound 2-3.ogg"
             end
             GlobalData.lanarts_picked_up[self.name] = true 
+            GlobalData.n_lives = GlobalData.n_lives + #require("core.World").players
         end,
         prereq_func = function (self, user)
             return false
@@ -197,7 +216,7 @@ Data.item_create  {
 
     action_func = function(self, user)
         play_sound "sound/haste.ogg"
-        user:add_effect(effects.Haste.name, 800)
+        user:add_effect("Haste", 800)
     end
 }
 

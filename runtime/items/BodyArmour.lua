@@ -7,7 +7,6 @@ Data.equipment_create {
 
     spr_item = "leather armour",
     randart_weight = 100,
-    randart_sprites = {"spr_armour.leather_armour3"},
 
     spell_cooldown_multiplier = 1.1,
 
@@ -25,7 +24,6 @@ Data.equipment_create {
     randart_weight = 20,
 
     spr_item = "spr_armour.chain_mail1",
-    randart_sprites = {"spr_armour.chain_mail2", "spr_armour.chain_mail3"},
 
     spell_cooldown_multiplier = 1.15,
 
@@ -41,8 +39,6 @@ Data.equipment_create {
     description = "An armour made of heavy but magically unburdensome crystals. Slows down movement speed considerably.",
     type = "armour",
 
-    randart_sprites = {"spr_armour.crystal_plate3"},
-    randart_weight = 1,
     shop_cost = {295,305},
 
     spr_item = "spr_armour.crystal_plate2",
@@ -59,8 +55,6 @@ Data.equipment_create {
     description = "A strong, heavy armour.",
     type = "armour",
 
-    randart_sprites = {"spr_armour.randart_plate"},
-    randart_weight = 1,
     shop_cost = {95,105},
 
     spr_item = "platemail",
@@ -75,20 +69,79 @@ Data.equipment_create {
 }
 
 Data.equipment_create {
-    name = "Robe",
-    description = "A lightly protective, uninhibited robe.",
+    name = "Green Robe",
+    description = "The magic robes of a beginner green mage.",
     type = "armour",
-    randart_weight = 100,
 
     shop_cost = {10,20},
-    randart_sprites = {"spr_armour.randart_robe1", "spr_armour.randart_robe2"},
 
-    spr_item = "robe",
+    spr_item = "spr_armour.green_robe",
 
     stat_bonuses = { 
         willpower = 1,
     },
+    effects_granted = {
+        {"RedResist", {resist = -1}},
+        {"RedPower", {power = -1}},
+        {"GreenResist", {resist = 1}},
+        {"GreenPower", {power = 1}},
+    }
 }
+
+Data.equipment_create {
+     name = "Robe",
+     description = "A lightly protective, uninhibited robe.",
+     type = "armour",
+ 
+     shop_cost = {10,20},
+ 
+     spr_item = "robe",
+ 
+     stat_bonuses = { 
+         willpower = 1,
+     },
+}
+
+Data.equipment_create {
+    name = "White Robe",
+    description = "The magic robes of a beginner white mage.",
+    type = "armour",
+
+    shop_cost = {10,20},
+
+    spr_item = "spr_armour.white_robe",
+
+    stat_bonuses = { 
+        willpower = 1,
+    },
+    effects_granted = {
+        {"BlackResist", {resist = -1}},
+        {"BlackPower", {power= -1}},
+        {"WhiteResist", {resist = 1}},
+        {"WhitePower", {power = 1}},
+    }
+}
+
+Data.equipment_create {
+    name = "Red Robe",
+    description = "The magic robes of a beginner red mage.",
+    type = "armour",
+
+    shop_cost = {10,20},
+
+    spr_item = "spr_armour.robe_ego1",
+
+    stat_bonuses = { 
+        willpower = 1,
+    },
+    effects_granted = {
+        {"BlueResist", {resist = -1}},
+        {"BluePower", {power = -1}},
+        {"RedResist", {resist = 1}},
+        {"RedPower", {power = 1}},
+    }
+}
+
 
 Data.equipment_create {
     name = "Magician's Robe",

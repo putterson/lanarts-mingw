@@ -33,6 +33,7 @@
 #include "collision_filters.h"
 
 static lsound::Sound minor_missile_sound;
+static lsound::Sound hurt_sound;
 void play(lsound::Sound& sound, const char* path);
 
 ProjectileInst::~ProjectileInst() {
@@ -52,6 +53,19 @@ void ProjectileInst::draw(GameState* gs) {
 	draw_sprite(view, sprite(), xx, yy, vx, vy, frame);
 }
 
+void ProjectileInst::init(GameState *gs) {
+    GameInst::init(gs);
+    LuaValue& metatable = projectile.projectile_entry().projectile_metatable;
+    if (metatable.empty()) {
+        return;
+    }
+    lua_State* L = gs->luastate();
+    luawrap::push(L, (GameInst*)this); // Ensure lua_variables are set TODO have an on_create method for when lua variables are created for an object
+    lua_pop(L, 1);
+	lua_variables["on_deinit"] = metatable["__index"]["on_deinit"];
+	lua_variables["on_step"] = metatable["__index"]["on_step"];
+    lua_variables["caster"] = gs->get_instance(origin_id);
+}
 void ProjectileInst::deinit(GameState* gs) {
 	ProjectileEntry& pentry = projectile.projectile_entry();
 	int break_roll = gs->rng().rand(100);
@@ -62,6 +76,7 @@ void ProjectileInst::deinit(GameState* gs) {
 				origin_id, true /*auto-pickup*/);
 		gs->add_instance(item);
 	}
+    GameInst::deinit(gs);
 }
 
 void ProjectileInst::copy_to(GameInst* inst) const {
@@ -87,25 +102,47 @@ ProjectileInst::ProjectileInst(const Item& projectile,
 				hits(hits),
 				damage_mult(1.0f),
 				pass_through(pass_through) {
-	direction_towards(start, target, vx, vy, speed);
+    direction_towards(start, target, vx, vy, speed);
 }
 
 ProjectileInst* ProjectileInst::clone() const {
 	return new ProjectileInst(*this);
 }
 
-static void lua_hit_callback(lua_State* L, LuaValue& callback,
-		const EffectiveAttackStats& atkstats, GameInst* projectile,
+float lua_hit_callback(lua_State* L, LuaValue& callback,
+		const EffectiveAttackStats& atkstats, float damage, GameInst* obj,
 		GameInst* target) {
 	if (!callback.empty() && !callback.isnil()) {
 		callback.push();
-		luawrap::push(L, projectile);
+		luawrap::push(L, obj);
 		luawrap::push(L, target);
 		lua_push_effectiveattackstats(L, atkstats);
-		lua_call(L, 3, 0);
+		lua_pushinteger(L, damage);
+		lua_call(L, 4, 1);
+		if (lua_isnumber(L, -1)) {
+			damage = lua_tonumber(L, -1);
+		}
+		lua_pop(L, 1);
 	}
+	return damage;
 }
 
+void lua_attack_stats_callback(lua_State* L, LuaValue& callback,
+		EffectiveAttackStats& atkstats, GameInst* obj, GameInst* target) {
+    if (!callback.empty() && !callback.isnil()) {
+            callback.push();
+            luawrap::push(L, obj);
+            luawrap::push(L, target);
+            lua_push_effectiveattackstats(L, atkstats);
+            LuaValue value(L);
+            value.pop();
+            value.push();
+            lua_call(L, 3, 1);
+            atkstats.power = value["power"].to_num();
+            atkstats.damage = value["damage"].to_num();
+            atkstats.magic_percentage = value["magic_percentage"].to_num();
+    }
+}
 static bool enemy_filter(GameInst* g1, GameInst* g2) {
     static CombatGameInst* comparison = NULL;
     if (g1 == NULL) {
@@ -170,21 +207,27 @@ void ProjectileInst::step(GameState* gs) {
                     id, origin->id, colobj->id);
             origin->signal_attacked_successfully();
 
-            lua_hit_callback(L,
+            EffectiveAttackStats tmp_stats = atkstats;
+            lua_attack_stats_callback(L, 
+                    projectile.projectile_entry().attack_stat_func,
+                    tmp_stats, origin, victim);
+            float damage = damage_formula(tmp_stats, victim->effective_stats());
+            damage = lua_hit_callback(L,
                     projectile.projectile_entry().action_func().get(L),
-                    atkstats, this, victim);
-
-            int damage = damage_formula(atkstats, victim->effective_stats());
+                    tmp_stats, damage, this, victim);
 
             if (gs->game_settings().verbose_output) {
                 char buff[100];
-                snprintf(buff, 100, "Attack: [dmg %d pow %d mag %d%%] -> Damage: %d",
-                        atkstats.damage, atkstats.power, int(atkstats.magic_percentage * 100),
-                        damage);
-                gs->game_chat().add_message(buff);
+                snprintf(buff, 100, "Attack: [dmg %.2f pow %.2f mag %d%%] -> Damage: %d",
+                        tmp_stats.damage, tmp_stats.power, int(tmp_stats.magic_percentage * 100),
+                        (int)damage);
+		gs->for_screens([&]() {gs->game_chat().add_message(buff);});
 
             }
 
+            if (dynamic_cast<PlayerInst*>(victim)) {
+                play(hurt_sound, "sound/player_hurt.ogg");
+            }
             damage *= damage_mult;
 
 			gs->for_screens([&]() {
@@ -195,7 +238,7 @@ void ProjectileInst::step(GameState* gs) {
 			});
             if (!projectile.projectile_entry().deals_special_damage) {
                 char buffstr[32];
-                snprintf(buffstr, 32, "%d", damage);
+                snprintf(buffstr, 32, "%d", (int)damage);
                 float rx = vx / speed * .5;
                 float ry = vy / speed * .5;
                 gs->add_instance(
@@ -265,13 +308,6 @@ void ProjectileInst::step(GameState* gs) {
 		}
 	}
 
-	// Trying to get floating point stability
-	vx = round(vx * 256.0) / 256.0;
-	vy = round(vy * 256.0) / 256.0;
-
-	rx = round(rx * 256.0) / 256.0;
-	ry = round(ry * 256.0) / 256.0;
-	speed = round(speed * 256.0) / 256.0;
 	event_log("ProjectileInst id=%d has rx=%f, ry=%f, vx=%f,vy=%f\n", id, rx,
 			ry, vx, vy);
 }
@@ -298,4 +334,5 @@ void ProjectileInst::deserialize(GameState* gs, SerializeBuffer& serializer) {
 bool ProjectileInst::bullet_target_hit2(GameInst* self, GameInst* other) {
 	return ((ProjectileInst*) self)->sole_target == other->id;
 }
+
 

@@ -78,7 +78,6 @@ function M.spawn_item(map, type, amount, tile_xy)
     local object = GameObject.item_create {
         do_init = false,
         xy = M.from_tile_xy(tile_xy),
-        type = type,
         amount = amount,
         type = type,
     }
@@ -132,6 +131,18 @@ function M.spawn_decoration(map, sprite, sqr, frame, solid)
         type = DungeonFeatures.Decoration,
         sprite = sprite,
         frame = frame
+    } 
+    if solid then
+    end
+    table.insert(map.instances, object)
+    return object
+end
+
+function M.spawn_chest(map, sqr, contents)
+    local object = DungeonFeatures.Chest.create {
+        do_init = false,
+        xy = M.from_tile_xy(sqr),
+        contents = contents
     } 
     table.insert(map.instances, object)
     return object

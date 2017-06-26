@@ -48,7 +48,6 @@ function Engine.resources_load(...)
     end
 
     -- DO NOT mess with the order of these willy nilly.
-    _req "effects.Effects"
     _req "spells.Spells"
 
     _req "items.Items"
@@ -105,8 +104,11 @@ function Engine.event_occurred(...)
 end
 
 function Engine.first_map_create(...)
+    if os.getenv("LINEAR_MODE") then
+        local linear_mode = interceptable_require "maps.LinearMode"
+        return linear_mode.first_map_create()
+    end
     local region1 = interceptable_require "maps.01_Overworld"
-
     local map = region1.overworld_create(...)
     return map
 end
@@ -131,15 +133,22 @@ end
 function Engine.player_input(player)
     local Gamepad = require "core.Gamepad"
     local ids = Gamepad.ids()
+    local offset = 1
+    if os.getenv("LANARTS_CONTROLLER") then
+        offset = 0
+    end
     for i=2,10 do
         if player.name == "Player " .. tostring(i) then
-            return (require "input.GamepadInputSource").create(player, ids[i-1])
+            return (require "input.GamepadInputSource").create(player, ids[i-offset])
         end
     end
-    --if #ids > 0 then
-    --    return (require "input.GamepadInputSource").create(player, ids[1])
-    --end
-    return (require "input.KeyboardInputSource").create(player)
+    local key_input = (require "input.KeyboardInputSource").create(player)
+    if os.getenv("LANARTS_CONTROLLER") then
+        local pad_input = (require "input.GamepadInputSource").create(player, ids[1])
+        return (require "input.CombinedInputSource").create(key_input, pad_input)
+    else
+        return key_input
+    end
 end
 
 -- Same steps:

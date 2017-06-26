@@ -107,16 +107,8 @@ function setup_start_menu()
         settings.class_type = ""
         exit_menu()
         return
-    elseif os.getenv("LANARTS_FIGHTER") then
-        settings.class_type = "Fighter"
-        exit_menu()
-        return
-    elseif os.getenv("LANARTS_ARCHER") then
-        settings.class_type = "Archer"
-        exit_menu()
-        return
-    elseif os.getenv("LANARTS_MAGE") then
-        settings.class_type = "Mage"
+    elseif os.getenv("LANARTS_GO") then
+        settings.class_type = os.getenv("LANARTS_GO")
         exit_menu()
         return
     elseif os.getenv("LANARTS_SERVER") then
@@ -135,6 +127,7 @@ function setup_start_menu()
     end    
 
     local function on_load_click()
+        GameState.mark_loading()
         game_loop.loop_control.startup_function = function()
             if file_exists("saves/savefile.save") then
                 GameState.load("saves/savefile.save")

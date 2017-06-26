@@ -1,4 +1,5 @@
 local GameState = require "core.GameState"
+local GlobalData = require "core.GlobalData"
 local DeathScreen = require "menus.DeathScreen"
 local Network = require "core.Network"
 local World = require "core.World"
@@ -15,23 +16,15 @@ function events.PlayerDeath(player)
         -- On soft-core, turn players into ghosts when they die:
         player.is_ghost = true
         if not player:has_effect("Reviving") then
-            player:add_effect("Reviving", 20 * 60) -- 20 'seconds'
+            player:add_effect("Reviving", 5 * 60) -- 20 'seconds'
         end
-        if #World.players == 1 then
-            return false -- On soft-core single-player, never die.
-        end
-        local are_all_ghosts = true
-        for _, player in ipairs(World.players) do
-            if not player.instance.is_ghost then
-                are_all_ghosts = false
-                break
-            end
-        end
+        GlobalData.n_lives = GlobalData.n_lives - 1
         -- On soft-core multiplayer, die if everyone is a ghost:
-        if are_all_ghosts then
+        if GlobalData.n_lives < 0  then
             GameState.score_board_store()
+            return true
         end
-        return are_all_ghosts
+        return false
     else
         if #World.players == 1 then
             GameState.wait(100)

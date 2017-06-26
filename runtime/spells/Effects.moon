@@ -7,6 +7,7 @@ Bresenham = require "core.Bresenham"
 Display = require "core.Display"
 SpellObjects = require "objects.SpellObjects"
 DataW = require "DataWrapped"
+EffectUtils = require "spells.EffectUtils"
 
 DataW.effect_create {
     name: "Poison"
@@ -188,6 +189,12 @@ DataW.effect_create {
     -- Effect in CPP
 }
 
+
+DataW.effect_create {
+    name: "AlwaysAttack"
+    -- Effect in CPP
+}
+
 DataW.effect_create {
     name: "Slowed"
     effected_sprite: "spr_effects.slowed"
@@ -228,47 +235,48 @@ DataW.effect_create {
 --DataW.weapon_confusion = tosprite("spr_effects.weapon_confusion")
 --DataW.weapon_vampirism = tosprite("spr_effects.weapon_vampirism")
 
-DataW._poison = tosprite("spr_weapons.i-venom")
-DataW._confusion = tosprite("spr_weapons.i-confusion")
-DataW._vampirism = tosprite("spr_weapons.i-vampirism")
-DataW._fleeing = tosprite("spr_effects.fleeing")
-DataW._fear = tosprite("spr_effects.i-life-protection")
+M = nilprotect {}
+M._poison = tosprite("spr_weapons.i-venom")
 
-draw_console_effect = (sprite, text, xy) ->
+M._fire_resist = tosprite("spr_effects.i-r-fire-big")
+M._ice_resist = tosprite("spr_effects.i-r-cold-big")
+M._generic_resist = tosprite("spr_effects.i-protection-big")
+M._poison_resist = tosprite("spr_effects.i-r-poison-big")
+M._black_resist = tosprite("spr_effects.black-resist")
+M._storm_resist = tosprite("spr_effects.shock-resist")
+
+M._fire_power = tosprite("spr_effects.i-fire-big")
+M._ice_power = tosprite("spr_effects.i-cold-big")
+M._black_power = tosprite("spr_effects.black-power")
+M._storm_power = tosprite("spr_effects.shock")
+M._generic_power = tosprite("spr_effects.sword")
+M._poison_power = tosprite("spr_effects.i-poison-big")
+
+
+M._confusion = tosprite("spr_weapons.i-confusion")
+M._vampirism = tosprite("spr_weapons.i-vampirism")
+M._fleeing = tosprite("spr_effects.fleeing")
+M._fear = tosprite("spr_effects.i-life-protection")
+
+draw_console_effect = (sprite, text, xy, color = COL_PALE_YELLOW) ->
     sprite\draw {
         origin: Display.LEFT_CENTER
     }, {xy[1], xy[2] + 4}
     font_cached_load(settings.font, 10)\draw {
-        color: COL_PALE_YELLOW
+        :color
         origin: Display.LEFT_CENTER
     }, {xy[1] + Map.TILE_SIZE + 4, xy[2]}, text 
 
-draw_weapon_console_effect = (player, sprite, text, xy) ->
+draw_weapon_console_effect = (player, sprite, text, xy, color = COL_PALE_YELLOW) ->
     player.weapon_sprite\draw {
         origin: Display.LEFT_CENTER
     }, {xy[1], xy[2] + 4}
-    draw_console_effect(sprite, text, xy)
-
-DataW.effect_create {
-    name: "PoisonedWeapon"
-    console_draw_func: (player, xy) => 
-        draw_weapon_console_effect(player, DataW._poison, "+25% chance poison", xy)
-    on_melee_func: (attacker, defender, damage, attack_stats) =>
-        if defender\has_effect("Poison")
-            return
-        if (if attacker.is_enemy then chance(.25 * @n_derived) else chance(.1 * @n_derived))
-            eff = defender\add_effect("Poison", 100)
-            eff.poison_rate = 25
-            eff.damage = attack_stats.damage
-            eff.power = attack_stats.power
-            eff.magic_percentage = attack_stats.magic_percentage
-        return damage
-}
+    draw_console_effect(sprite, text, xy, color)
 
 DataW.effect_create {
     name: "FearWeapon"
     console_draw_func: (player, xy) => 
-        draw_weapon_console_effect(player, DataW._fear, "+10% chance fear", xy)
+        draw_weapon_console_effect(player, M._fear, "+10% chance fear", xy)
     on_melee_func: (attacker, defender, damage, attack_stats) =>
         if defender\has_effect("Fear")
             return
@@ -280,7 +288,7 @@ DataW.effect_create {
 DataW.effect_create {
     name: "ConfusingWeapon"
     console_draw_func: (player, xy) => 
-        draw_weapon_console_effect(player, DataW._confusion, "+10% chance daze", xy)
+        draw_weapon_console_effect(player, M._confusion, "+10% chance daze", xy)
     on_melee_func: (attacker, defender, damage, attack_stats) =>
         if defender\has_effect("Dazed")
             return
@@ -312,6 +320,58 @@ DataW.effect_create {
         else
             regen_rate = hpregen * (if caster\has_effect("AmuletGreatPain") then 29 else 14)
             caster\heal_hp(regen_rate)
+}
+
+for {resist_sprite, power_sprite, type, color} in *{
+    {M._poison_resist, M._poison_power, "Green", {226, 66, 244}}
+    {M._fire_resist, M._fire_power, "Red", {244, 72, 66}}
+    {M._ice_resist, M._ice_power, "Blue", COL_WHITE}
+    {M._storm_resist, M._storm_power, "White", COL_BLUE}
+    {M._black_resist, M._black_power, "Black", COL_BLUE}
+    -- Swords
+    {M._generic_resist, M._generic_power, "Slashing", {66, 222, 188}}
+    {M._generic_resist, M._generic_power, "Bludgeon", {66, 244, 194}}
+    -- 
+    {M._generic_resist, M._generic_power, "Piercing", {66, 244, 214}}
+} do
+    color = COL_WHITE -- OVERRIDE HACK FOR NOW
+    -- Simply a stat variable:
+    DataW.additive_effect_create {
+        name: "#{type}Resist"
+        key: "resist" -- Additive effect, accessed with @_get_value().
+        console_draw_func: (player, xy) => 
+            text = "#{type} Resist"
+            res = if @resist < 0 then @resist else "+"..@resist
+            draw_console_effect(resist_sprite, "#{res} #{text}", xy, if @resist >= 0 then color else COL_PALE_RED)
+    }
+    -- Adds power specifically to attacks of this type
+    -- Subform of 
+    -- TODO separate sprite
+    DataW.additive_effect_create {
+        name: "#{type}Power"
+        key: "power" -- Additive effect, accessed with @_get_value().
+        console_draw_func: (player, xy) => 
+            text = "#{type} Power"
+            res = if @power < 0 then @power else "+"..@power
+            draw_console_effect(power_sprite, "#{res} #{text}", xy, if @power >= 0 then color else COL_PALE_RED)
+    }
+DataW.additive_effect_create {
+    name: "PoisonedWeapon"
+    key: "poison_percentage" -- Additive effect, accessed with @_get_value().
+    console_draw_func: (player, xy) => 
+        draw_weapon_console_effect(player, M._poison, "+#{math.floor(@poison_percentage * 100)}% chance poison", xy)
+    on_melee_func: (attacker, defender, damage, attack_stats) =>
+        if defender\has_effect("Poison")
+            return
+        resist = EffectUtils.get_resistance(defender, "Green")
+        poison_chance = @_get_value()
+        if chance(poison_chance * resist)
+            eff = defender\add_effect("Poison", 100)
+            eff.poison_rate = 25
+            eff.damage = attack_stats.damage
+            eff.power = attack_stats.power
+            eff.magic_percentage = attack_stats.magic_percentage
+        return damage
 }
 
 DataW.additive_effect_create {
@@ -459,7 +519,7 @@ for equip_slot in *{"", "Armour", "Amulet", "Ring", "Belt", "Weapon", "Legwear"}
 DataW.effect_create {
     name: "PossiblySummonCentaurOnKill"
     console_draw_func: (player, xy) => 
-        draw_console_effect(tosprite("spr_enemies.humanoid.centaur"), "Aids you sometimes after a kill", xy)
+        draw_console_effect(tosprite("spr_enemies.humanoid.centaur"), "Can appear after a kill", xy)
     category: "EquipEffect"
     init_func: (caster) =>
         @kill_tracker = caster.kills
@@ -480,7 +540,7 @@ DataW.effect_create {
 DataW.effect_create {
     name: "PossiblySummonStormElementalOnKill"
     console_draw_func: (player, xy) => 
-        draw_console_effect(tosprite("storm elemental"), "Aids you sometimes after a kill", xy)
+        draw_console_effect(tosprite("storm elemental"), "Can appear after a kill", xy)
     category: "EquipEffect"
     init_func: (caster) =>
         @kill_tracker = caster.kills
@@ -502,7 +562,7 @@ DataW.effect_create {
 DataW.effect_create {
     name: "PossiblySummonGolemOnKill"
     console_draw_func: (player, xy) => 
-        draw_console_effect(tosprite("golem"), "Aids you sometimes after a kill", xy)
+        draw_console_effect(tosprite("golem"), "Can appear after a kill", xy)
     category: "EquipEffect"
     init_func: (caster) =>
         @kill_tracker = caster.kills
@@ -534,12 +594,14 @@ DataW.effect_create {
         @duration = @time_left
         @on_summon = do_nothing
         @summon_xy = caster.xy
+        @start_map = caster.map
         caster.summoned or= {}
     step_func: (caster) =>
         @n_steps += 1
         if @n_steps == @delay
-            ability = SpellObjects.SummonAbility.create {monster: @monster, :caster, xy: @summon_xy, duration: @duration, on_summon: @on_summon}
-            GameObject.add_to_level(ability)
+            if caster.map == @start_map
+                ability = SpellObjects.SummonAbility.create {monster: @monster, :caster, xy: @summon_xy, duration: @duration, on_summon: @on_summon}
+                GameObject.add_to_level(ability)
 }
 
 DataW.effect_create {
@@ -697,7 +759,11 @@ DataW.effect_create {
                 mon\add_effect("Pained", 50)
                 play_pained_sound()
                 caster\add_effect("Pained", 50)
-                if mon\damage(random(4,15) * 2 + caster.stats.magic * 2, random(2,5) + caster.stats.magic * 0.2, 1.0, 2.0)
+                stats = caster\effective_stats()
+                damage, power = 20, random(2,5) + stats.magic
+                power = power + EffectUtils.get_power(caster, "Black")
+                damage = damage * EffectUtils.get_resistance(mon, "Black")
+                if mon\damage(damage, power, 1) then
                     {:stats} = caster
                     caster\gain_xp_from(mon)
                     {:max_hp} = mon\effective_stats()
@@ -725,7 +791,7 @@ DataW.effect_create {
 DataW.effect_create {
     name: "VampiricWeapon"
     console_draw_func: (player, xy) => 
-        draw_weapon_console_effect(player, DataW._vampirism, "Heal +25% dealt", xy)
+        draw_weapon_console_effect(player, M._vampirism, "Heal +25% dealt", xy)
     on_melee_func: (attacker, defender, damage, attack_stats) =>
         GameState.for_screens () ->
             if attacker\is_local_player() 
@@ -751,7 +817,7 @@ DataW.effect_create {
 DataW.effect_create {
     name: "KnockbackWeapon"
     console_draw_func: (player, xy) => 
-        draw_weapon_console_effect(player, DataW._fleeing, "+10% chance of knockback", xy)
+        draw_weapon_console_effect(player, M._fleeing, "+10% chance of knockback", xy)
     on_melee_func: (attacker, defender, damage, attack_stats) =>
         if defender\has_effect("Thrown")
             return
@@ -768,14 +834,10 @@ share_damage = (target, damage, min_health) ->
         damage = math.max(0, target.stats.hp - min_health)
     target.stats.hp -= damage
 
-for name in *{"Ranger", "Fighter", "Necromancer", "Mage", "Lifelinker"}
+for name in *{"Ranger", "Fighter", "Necromancer", "White Mage", "Red Mage", "Blue Mage", "Lifelinker"}
     DataW.effect_create {
         :name
         stat_func: (obj, old, new) =>
-            if name == "Mage" and obj.stats.level == 1
-                new.spell_cooldown_multiplier *= 1.1
-            if name == "Mage" and obj.stats.level == 2
-                new.spell_cooldown_multiplier *= 1.05
             if name ~= "Fighter"
                 new.melee_cooldown_multiplier *= 1.25
             if name ~= "Ranger" or name ~= "Fighter"
@@ -790,7 +852,6 @@ for name in *{"Ranger", "Fighter", "Necromancer", "Mage", "Lifelinker"}
                 caster\add_effect "Summoner", 2 -- Keep effect from dying
             else
                 eff = caster\add_effect "Summoner", 2
-                print("EFF", eff)
                 eff.duration = 30
             while caster.kills > @kill_tracker
                 if name == "Necromancer"
@@ -953,3 +1014,5 @@ DataW.effect_create {
                     EventLog.add("You are thrown back!", {200,200,255})
             -- mon\remove_effect("Charging")
 }
+
+return M

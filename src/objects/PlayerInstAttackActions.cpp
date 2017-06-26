@@ -8,6 +8,7 @@
 #include <luawrap/luawrap.h>
 
 #include "data/game_data.h"
+#include "data/lua_util.h"
 #include "draw/colour_constants.h"
 #include "draw/draw_sprite.h"
 #include "draw/SpriteEntry.h"
@@ -15,9 +16,9 @@
 #include "gamestate/GameState.h"
 
 #include "lua_api/lua_api.h"
-#include "lua_api/lua_api.h"
 
 #include "stats/items/ItemEntry.h"
+#include "stats/SpellEntry.h"
 
 #include "stats/items/ProjectileEntry.h"
 #include "stats/items/WeaponEntry.h"
@@ -212,35 +213,6 @@ static bool lua_spell_get_target(GameState* gs, PlayerInst* p, LuaValue& action,
     return !nilresult;
 }
 
-static void player_use_luacallback_spell(GameState* gs, PlayerInst* p,
-        SpellEntry& spl_entry, LuaValue& action, const Pos& target) {
-    lua_State* L = gs->luastate();
-    action.push();
-    luawrap::push(L, p);
-    lua_pushnumber(L, target.x);
-    lua_pushnumber(L, target.y);
-    luawrap::push(L, gs->get_instance(p->target()));
-    lua_call(L, 4, 0);
-}
-
-static bool lua_spell_check_prereq(GameState* gs, PlayerInst* p,
-        SpellEntry& spl_entry, LuaValue& action, const Pos& target) {
-    lua_State* L = gs->luastate();
-    bool passes = true;
-
-    if (!action.empty()) {
-        action.push();
-        luawrap::push(L, p);
-        lua_pushnumber(L, target.x);
-        lua_pushnumber(L, target.y);
-        lua_call(L, 3, 1);
-        passes = lua_toboolean(L, -1);
-        lua_pop(L, 1);
-    }
-
-    return passes;
-}
-
 const float PI = 3.141592f;
 
 static void player_use_projectile_spell(GameState* gs, PlayerInst* p,
@@ -253,11 +225,13 @@ static void player_use_projectile_spell(GameState* gs, PlayerInst* p,
     int nbounces = pentry.number_of_target_bounces;
     float speed = pentry.speed * p->effective_stats().core.spell_velocity_multiplier;
 
-    bool has_greater_fire = p->effects.has("AmuletGreaterFire");
-    if (pentry.name == "Mephitize" || pentry.name == "Trepidize" || (has_greater_fire && pentry.name == "Fire Bolt")) {
+    bool has_greater_fire = p->effects.has("AmuletGreaterFire") || p->effects.has("Inner Fire");
+    bool is_spread_spell = pentry.name == "Mephitize" || pentry.name == "Purple Dragon Projectile";
+    if (is_spread_spell || pentry.name == "Trepidize" || (has_greater_fire && pentry.name == "Fire Bolt")) {
         float vx = 0, vy = 0;
         ::direction_towards(Pos {p->x, p->y}, target, vx, vy, 10000);
         int directions = (pentry.name == "Trepidize" ? 4 : 16);
+        if (pentry.name == "Fire Bolt") directions = 4;
 
         for (int i = 0; i < directions; i++) {
             float angle = PI / directions * 2 * i;
@@ -287,14 +261,17 @@ static void player_use_spell(GameState* gs, PlayerInst* p,
             p->effective_stats().cooldown_modifiers.spell_cooldown_multiplier;
     p->cooldowns().reset_action_cooldown(
             spl_entry.cooldown * spell_cooldown_mult);
+    float cooldown_mult = game_spell_data.call_lua(spl_entry.name, "cooldown_multiplier", /*Default value:*/ 1.0f, p);
+    spell_cooldown_mult *= cooldown_mult;
+//    game_spell_data.
     // Set global cooldown for spell:
-    p->cooldowns().spell_cooldowns[spl_entry.id] = std::max(int(spl_entry.spell_cooldown * spell_cooldown_mult), p->cooldowns().spell_cooldowns[spl_entry.id]);
+    p->cooldowns().spell_cooldowns[spl_entry.id] = (int)std::max(spl_entry.spell_cooldown * spell_cooldown_mult, p->cooldowns().spell_cooldowns[spl_entry.id] * spell_cooldown_mult);
     if (spl_entry.uses_projectile()) {
         player_use_projectile_spell(gs, p, spl_entry, spl_entry.projectile,
                 target);
     } else {
-        player_use_luacallback_spell(gs, p, spl_entry,
-                spl_entry.action_func.get(L), target);
+        // Use action_func callback
+        lcall(spl_entry.action_func, /*caster*/ p, target.x, target.y, /*target object*/ gs->get_instance(p->target()));
     }
 }
 
@@ -355,7 +332,7 @@ bool PlayerInst::enqueue_io_spell_actions(GameState* gs, bool* fallback_to_melee
         bool can_target;
         if (auto_target) {
             can_target = lua_spell_get_target(gs, this,
-                    spl_entry.autotarget_func.get(L), target);
+                    spl_entry.autotarget_func, target);
         } else {
             // TODO have target_position here
             int rmx = view.x + gs->mouse_x(), rmy = view.y + gs->mouse_y();
@@ -379,8 +356,8 @@ bool PlayerInst::enqueue_io_spell_actions(GameState* gs, bool* fallback_to_melee
         }
 
         if (can_trigger && can_target) {
-            bool can_use = lua_spell_check_prereq(gs, this, spl_entry,
-                    spl_entry.prereq_func.get(L), target);
+            bool can_use = lcall(/*default*/ true, spl_entry.prereq_func,
+                    /*caster*/ this, target.x, target.y);
             if (can_use) {
                 queued_actions.push_back(
                         game_action(gs, this, GameAction::USE_SPELL,
@@ -509,16 +486,6 @@ bool PlayerInst::enqueue_io_spell_and_attack_actions(GameState* gs, float dx,
     return attack_used;
 }
 
-static void lua_hit_callback(lua_State* L, LuaValue& callback, GameInst* user,
-        GameInst* target) {
-    if (!callback.empty() && !callback.isnil()) {
-        callback.push();
-        luawrap::push(L, user);
-        luawrap::push(L, target);
-        lua_call(L, 2, 0);
-    }
-}
-
 // Happens when you use up a projectile
 // -- next try option some other weapon projectile
 // -- next try unarmed projectile (redundant if already prefer unarmed)
@@ -577,7 +544,7 @@ void PlayerInst::use_weapon(GameState* gs, const GameAction& action) {
         } else {
         }
 
-        bool wallbounce = false;
+        bool wallbounce = pentry.can_wall_bounce;
         int nbounces = 0;
 
         GameInst* bullet = new ProjectileInst(projectile,
@@ -609,8 +576,6 @@ void PlayerInst::use_weapon(GameState* gs, const GameAction& action) {
 
         for (int i = 0; i < numhit; i++) {
             EnemyInst* e = (EnemyInst*)enemies[i];
-            lua_hit_callback(gs->luastate(), wentry.action_func().get(L), this,
-                    e);
             attack(gs, e, AttackStats(equipment().weapon()) );
         }
         cooldown = wentry.cooldown();

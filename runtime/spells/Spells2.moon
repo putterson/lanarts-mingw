@@ -7,16 +7,18 @@ Bresenham = require "core.Bresenham"
 Display = require "core.Display"
 SpellObjects = require "objects.SpellObjects"
 DataW = require "DataWrapped"
+require "spells.DefineFireSpells"
 
 INFINITE_DURATION = 2^30 -- For all intents and purposes
 mon_title = (mon) -> if mon.unique then mon.name else "the #{mon.name}"
 
 -- MINOR MISSILE
 
+-- Basic typeless mage spell
 DataW.spell_create {
     name: "Minor Missile"
     spr_spell: "minor missile"
-    description: "A low cost, fast bolt of energy. Hits a single target. The bolt can bounce off walls safely."
+    description: "A low cost neutral bolt of energy. Hits a single target. The bolt can bounce off walls safely."
     projectile: {
         speed: 7.25
         damage_multiplier: 0.75
@@ -35,6 +37,7 @@ DataW.spell_create {
     mp_cost: 20
     projectile: {
         speed: 7.25
+        types: {"Piercing"}
         spr_attack: "crystal spear"
         range: 150
         speed: 9
@@ -53,6 +56,7 @@ DataW.spell_create {
     spr_spell: "fire ball",
     description: "A great, strong bolt of fire. Hits a single target.",
     projectile: {
+        types: {"Red"}
         speed: 5
         damage_multiplier: 2.00
     }
@@ -69,6 +73,7 @@ DataW.spell_create {
     projectile: {
         speed: 2
         cooldown: 105
+        types: {"Green"}
         on_hit_func: (target, atkstats) =>
             effect = target\add_effect("Poison", 100) 
             effect.damage = atkstats.damage 
@@ -97,20 +102,33 @@ DataW.spell_create {
     spell_cooldown: 1600
 }
 
--- FIRE BOLT
-
 DataW.spell_create {
-    name: "Fire Bolt",
-    spr_spell: "fire bolt",
-    description: "A fast bolt of fire. Hits a single target.",
+    name: "Water Bolt",
+    description: "A short range frosty bolt of cold. Hits a single target.",
+    types: {"Blue"}
+    spr_spell: "spr_effects.iceball",
     projectile: {
-        speed: 7
-        damage_multiplier: 1.25
-        spr_attack: "fire bolt"
+        speed: 5
+        damage_multiplier: 1.35
     }
     mp_cost: 10,
     cooldown: 35
 }
+
+-- LIGHTNING BOLT
+DataW.spell_create {
+    name: "Lightning Bolt",
+    spr_spell: "spr_effects.shock",
+    description: "A super fast projectile lightning attack.",
+    types: {"White"}
+    projectile: {
+        speed: 9
+        damage_multiplier: 1.2
+    }
+    mp_cost: 10,
+    cooldown: 35
+}
+
 
 -- CHAIN LIGHTNING
 
@@ -119,6 +137,7 @@ DataW.spell_create {
     description: "A slow, powerful blast of lightning. The blast can bounce off an enemy twice before dissipating.",
     spr_spell: "charge_effected",
     projectile: {
+        types: {"White"}
         speed: 4
         number_of_target_bounces: 3
     }
@@ -130,6 +149,7 @@ DataW.projectile_create {
     name: "Skullthrow"
     weapon_class: "magic"
     spr_spell: "spr_spells.skullthrow"
+    types: {"Black"}
     range: 300
     damage_type: {magic: 0.5, physical: 0.5}
     speed: 7.25
@@ -146,7 +166,10 @@ DataW.projectile_create {
 
 DataW.spell_create {
     name: "Ludaze"
+    types: {"Black"}
     spr_spell: "spr_spells.ludaze"
+    -- types: {"Dark"}
+    damage_type: {magic: 0.5, physical: 0.5}
     description: "Dazes and poisons all enemies in sight." 
     mp_cost: 25
     cooldown: 0
@@ -157,7 +180,7 @@ DataW.spell_create {
         caster\add_effect("Ludaze", 30)
         play_sound "sound/ludaze.ogg"
         for mon in *(Map.enemies_list caster)
-            if not Map.object_visible(mon)
+            if not Map.object_visible(mon, mon.xy, caster)
                 continue
             mon\add_effect("Dazed", 100)
             eff = mon\add_effect("Poison", 100)
@@ -174,10 +197,10 @@ DataW.spell_create {
     prereq_func: (caster) -> 
         if not caster\has_effect("Berserk") and not caster\has_effect("Exhausted")  and not caster\has_effect("Ice Form")
             for mon in *(Map.enemies_list caster)
-                if Map.object_visible(mon)
+                if Map.object_visible(mon, mon.xy, caster)
                     return true
-            GameState.for_screens () ->
-                EventLog.add("No monsters in sight!", COL_PALE_RED)
+            --GameState.for_screens () ->
+            EventLog.add("No monsters in sight!", COL_PALE_RED)
             return false
         return false
 }
@@ -185,10 +208,12 @@ DataW.spell_create {
 
 DataW.spell_create {
     name: "Ice Form"
+    types: {"Blue"}
     spr_spell: "spr_spells.iceform"
     description: "Initiates Ice Form, a powerful ability for safe dungeoneering, preventing attacks and spells, and lowering speed drastically, but providing near immunity for 10 seconds." 
     mp_cost: 40
     cooldown: 100
+    damage_type: {magic: 0.5, physical: 0.5}
     spell_cooldown: 1600
     can_cast_with_held_key: false
     fallback_to_melee: false
@@ -202,14 +227,15 @@ DataW.spell_create {
     autotarget_func: (caster) -> caster.x, caster.y
     prereq_func: (caster) -> 
         if not caster.can_rest
-            GameState.for_screens () ->
-                EventLog.add("Ice Form requires perfect concentration!", {200,200,255})
+            --GameState.for_screens () ->
+            EventLog.add("Ice Form requires perfect concentration!", {200,200,255})
             return false
         return not caster\has_effect("Berserk") and not caster\has_effect("Exhausted")  and not caster\has_effect("Ice Form")
 }
 
 DataW.spell_create {
     name: "Baleful Regeneration",
+    types: {"Black"}
     spr_spell: "spr_spells.regeneration",
     description: "You tap into necromancy to very quickly bind your wounds, until your are fully healed or its power runs out. Takes longer to run out the more willpower you have.",
     -- TODO have an interface for displaying custom stats, -- description_draw_func ?? Maybe directly call the draw API, but have positioning handled.
@@ -241,6 +267,7 @@ DataW.spell_create {
 -- Requires kills from the necromancer, in the form of mana.
 DataW.spell_create {
     name: "Summon Dark Aspect",
+    types: {"Black"}
     spr_spell: "spr_spells.summon",
     description: "You summon a dark companion, at the cost of health and mana. The companion is stronger depending on the caster's willpower.",
     --description: "You summon a dark companion, at the cost of health and mana. The companion is stronger depending on the caster's willpower. Dies quickly outside of summoner view.",
@@ -252,21 +279,18 @@ DataW.spell_create {
     autotarget_func: (caster) -> caster.x, caster.y
     prereq_func: (caster) ->
         if caster.stats.hp < 55
-            GameState.for_screens () ->
-                if caster\is_local_player() 
-                    EventLog.add("You do not have enough health!", {200,200,255})
-                return false
+            if caster\is_local_player() 
+                EventLog.add("You do not have enough health!", {200,200,255})
+            return false
         if not caster\has_effect "Necromancer"
-            GameState.for_screens () ->
-                if caster\is_local_player() 
-                    EventLog.add("You must be a necromancer to cast this spell!", {200,200,255})
+            if caster\is_local_player() 
+                EventLog.add("You must be a necromancer to cast this spell!", {200,200,255})
             return false
         amount = math.max 1, math.ceil((caster\effective_stats().willpower - 7) / 2)
         {:n_summons} = caster\get_effect("Summoner")
         if n_summons >= amount
-            GameState.for_screens () ->
-                if caster\is_local_player() 
-                    EventLog.add("You cannot currently control more than #{amount} aspects!", {200,200,255})
+            if caster\is_local_player() 
+                EventLog.add("You cannot currently control more than #{amount} aspects!", {200,200,255})
             return false
         return not caster\has_effect("Exhausted") and not (caster\has_effect "Summoning")
     action_func: (caster, x_unused, y_unused) ->
@@ -293,6 +317,7 @@ DataW.spell_create {
 -- Dash Attack
 DataW.spell_create {
     name: "Dash Attack",
+    types: {"Green"}
     spr_spell: "expedite",
     description: "Dash in a straight line, hitting all enemies in your path. Stops if you hit a wall." -- Can still perform abilities while dashing.",
     --description: "You summon a dark companion, at the cost of health and mana. The companion is stronger depending on the caster's willpower. Dies quickly outside of summoner view.",
@@ -300,7 +325,7 @@ DataW.spell_create {
     cooldown: 0
     can_cast_with_held_key: true
     fallback_to_melee: true
-    spell_cooldown: 400
+    spell_cooldown: 100
     action_func: (x, y) =>
         effect = @add_effect "Dash Attack", 15
         effect.angle = vector_direction(@xy, {x,y})
@@ -317,6 +342,7 @@ DataW.spell_create {
 -- Link of Loyalty
 DataW.spell_create {
     name: "Link of Loyalty",
+    types: {"Black"}
     spr_spell: "spr_spells.forgelink",
     description: "You summon a linked companion near an enemy, sending them to immediate combat but taking damage whenever they take damage. The type of companion depends on your amulet's summoning aspect.",
     mp_cost: 20
@@ -355,6 +381,7 @@ DataW.spell_create {
 -- TODO AOE link all enemies?
 DataW.spell_create {
     name: "Unlink",
+    types: {"Black"}
     spr_spell: "spr_spells.unlink",
     description: "You break the link with all life-linked monsters. Monsters you have summoned are returned to their domain. Heals a small amount of health per monster."
     mp_cost: 0

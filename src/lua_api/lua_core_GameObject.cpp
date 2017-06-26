@@ -151,7 +151,7 @@ static LuaValue lua_gameinst_base_metatable(lua_State* L) {
     methods["remove_effect"].bind_function( lapi_gameinst_remove_effect);
 
     LUAWRAP_GETTER(methods, add_effect, OBJ->effects.add(lua_api::gamestate(L), OBJ, StatusEffect {effect_from_lua(L, 2), LuaValue(L, 3)}) );
-    LUAWRAP_GETTER(methods, has_effect, OBJ->effects.get_active(lua_tostring(L, 2)) != NULL);
+    LUAWRAP_GETTER(methods, has_effect, OBJ->effects.has(lua_tostring(L, 2)));
     LUAWRAP_GETTER(methods, get_effect, OBJ->effects.get(lua_api::gamestate(L), OBJ, lua_tostring(L, 2)).state);
     LUAWRAP_GETTER(methods, has_effect_category, OBJ->effects.has_category(luawrap::get<const char*>(L, 2)));
 
@@ -169,8 +169,8 @@ static int lapi_combatgameinst_damage(lua_State* L) {
 	GameState* gs = lua_api::gamestate(L);
 	EffectiveAttackStats attack;
 	int nargs = lua_gettop(L);
-	attack.damage = round(lua_tonumber(L, 2));
-	attack.power = round(lua_tonumber(L, 3));
+	attack.damage = lua_tonumber(L, 2);
+	attack.power = lua_tonumber(L, 3);
 	attack.magic_percentage = nargs >= 4 ? lua_tonumber(L, 4) : 1.0f;
 
 	bool died = (luawrap::get<CombatGameInst*>(L, 1)->damage(lua_api::gamestate(L), attack));
@@ -204,9 +204,9 @@ static LuaValue lua_combatgameinst_metatable(lua_State* L) {
     LuaValue getters = luameta_getters(meta);
     LuaValue setters = luameta_getters(meta);
 	luawrap::bind_getter(getters["vx"], &CombatGameInst::vx);
+        luawrap::bind_getter(getters["vy"], &CombatGameInst::vy);
 	luawrap::bind_getter(getters["is_resting"], &CombatGameInst::is_resting);
     LUAWRAP_GETTER(getters, sprite, game_sprite_data.get(OBJ->get_sprite()).sprite);
-    luawrap::bind_getter(getters["vy"], &CombatGameInst::vy);
     luawrap::bind_getter(getters["team"], &CombatGameInst::team);
     luawrap::bind_getter(getters["vision_radius"], &CombatGameInst::vision_radius);
     luawrap::bind_setter(setters["vision_radius"], &CombatGameInst::vision_radius);
@@ -224,6 +224,7 @@ static LuaValue lua_combatgameinst_metatable(lua_State* L) {
 	LUAWRAP_METHOD(methods, melee, luawrap::push(L, OBJ->melee_attack(lua_api::gamestate(L), luawrap::get<CombatGameInst*>(L, 2), OBJ->equipment().weapon(), true,
             // Damage multiplier:
             luawrap::get_defaulted(L, 3, 1.0f))) );
+    LUAWRAP_METHOD(methods, projectile_attack, OBJ->projectile_attack(lua_api::gamestate(L), NULL, Weapon(), Item(get_projectile_by_name(lua_tostring(L, 2)))));
 
     methods["damage"].bind_function(lapi_combatgameinst_damage);
 	methods["heal_hp"].bind_function(lapi_combatgameinst_heal_hp);
@@ -321,6 +322,7 @@ static LuaValue lua_playerinst_metatable(lua_State* L) {
     
 	LUAWRAP_GETTER(methods, has_melee_weapon, !OBJ->weapon().weapon_entry().uses_projectile);
 	LUAWRAP_GETTER(methods, has_ranged_weapon, OBJ->weapon().weapon_entry().uses_projectile);
+	LUAWRAP_GETTER(methods, within_field_of_view, OBJ->within_field_of_view(luawrap::get<Pos>(L, 2)));
 	LUAWRAP_GETTER(methods, is_local_player, OBJ->is_focus_player(lua_api::gamestate(L)));
 	LUAWRAP_GETTER(methods, can_benefit_from_rest, OBJ->can_benefit_from_rest());
 	LUAWRAP_METHOD(methods, gain_xp, players_gain_xp(lua_api::gamestate(L), luawrap::get<int>(L, 2)));

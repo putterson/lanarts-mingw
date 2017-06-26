@@ -130,7 +130,7 @@ public:
 	bool tile_line_test(const Pos& from_xy, const Pos& to_xy,
 			bool issolid = true, int ttype = -1, Pos* hitloc = NULL);
 	int object_radius_test(GameInst* obj, GameInst** objs = NULL, int obj_cap =
-			0, col_filterf f = NULL, int x = -1, int y = -1, int radius = -1);
+			0, col_filterf f = NULL, int x = -1024, int y = -1024, int radius = -1);
 	int object_radius_test(int x, int y, int radius, col_filterf f = NULL,
 			GameInst** objs = NULL, int obj_cap = 0);
 	bool solid_test(GameInst* obj, GameInst** objs = NULL, int obj_cap = 0,
@@ -285,6 +285,9 @@ public:
 	TeamData& team_data() {
 	    return game_world().team_data();
 	}
+	bool& is_loading_save() {
+		return _is_loading_save;
+	}
 	GameStatePostSerializeData& post_deserialize_data() {
 	    return _post_deserialize_data;
 	}
@@ -306,6 +309,7 @@ private:
 	GameSettings settings;
 	lua_State* L;
 	int frame_n;
+	bool _is_loading_save = false;
         // Used for restarting purposes, the initial value held by core.GlobalData, decided by runtime/InitialGlobalData.lua:
         LuaValue initial_global_data;
 	GameStateInitData init_data;

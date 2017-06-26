@@ -1,3 +1,5 @@
+EffectUtils = require "spells.EffectUtils"
+
 -- Normal effect. By default, takes the 'max' of all applied time_left's
 effect_create = (args) ->
     wrapped_init = args.init_func
@@ -93,6 +95,57 @@ additive_effect_create = (args) ->
 STANDARD_WEAPON_DPS = 10
 STANDARD_RANGED_DPS = 7
 
+add_on_hit_func = (args, f1) ->
+    f2 = args.on_hit_func
+    if f2 == nil 
+        args.on_hit_func = f1
+    else
+        args.on_hit_func = (obj, target, atkstats, damage) -> 
+            damage = f1(obj, target, atkstats, damage) or damage
+            return f2(obj, target, atkstats, damage)
+
+add_attack_stat_func = (args, f1) ->
+    f2 = args.attack_stat_func
+    if f2 == nil 
+        args.attack_stat_func = f1
+    else
+        args.attack_stat_func = (obj, target, atkstats) -> 
+            f1(obj, target, atkstats)
+            f2(obj, target, atkstats)
+
+add_cooldown_multiplier = (args, f1) ->
+    f2 = args.cooldown_multiplier
+    if f2 == nil
+        args.cooldown_multiplier = f1
+    else
+        args.cooldown_multiplier = () =>
+            f1(@)
+            f2(@)
+
+add_types = (args, types) ->
+    for type in *types
+        assert table.contains(EffectUtils.TYPES, type), "Invalid type!"
+        add_on_hit_func args, (obj, target, atkstats, damage) ->
+            return damage * EffectUtils.get_resistance(target, type)
+        add_attack_stat_func args, (obj, target, atkstats) ->
+            atkstats.power += EffectUtils.get_power(obj, type)
+
+power_effects = (powers, effects = {}) ->
+    for type, power in pairs powers
+        assert table.contains(EffectUtils.TYPES, type), "Invalid type!"
+        if power == 0 -- Special case for simplifying code-generated content
+            continue
+        append effects, {"#{type}Power", {:power}}
+    return effects
+
+resistance_effects = (resists, effects = {}) ->
+    for type, resist in pairs resists
+        assert table.contains(EffectUtils.TYPES, type), "Invalid type!"
+        if resist == 0 -- Special case for simplifying code-generated content
+            continue
+        append effects, {"#{type}Resist", {:resist}}
+    return effects
+
 weapon_create = (args, for_enemy = false) -> 
     damage_multiplier = args.damage_multiplier or 1.0
     dps = if args.type == "bows" then STANDARD_RANGED_DPS else STANDARD_WEAPON_DPS
@@ -104,6 +157,8 @@ weapon_create = (args, for_enemy = false) ->
         args.damage = {base: {math.floor(damage *0.9), math.ceil(damage * 1.1)}, strength: 0}
     else 
         args.damage or= {base: {math.floor(damage), math.ceil(damage)}, strength: 0}
+    if args.types ~= nil
+        add_types args, args.types
     args.power or= {base: {power, power}, strength: 1}
     args.range or= 7
     Data.weapon_create(args)
@@ -119,27 +174,37 @@ spell_create = (args) ->
         proj.spr_attack or= args.spr_spell
         proj.cooldown or= args.cooldown
         proj.range or= 300
+        proj.types or= args.types
         proj.damage_type or= {magic: 1.0}
         proj.damage or= {base: {math.floor(damage), math.ceil(damage)}, strength: 0}
         proj.power or= {base: {0, 0}, magic: 1}
+        if proj.types ~= nil
+            add_types proj, proj.types
         Data.projectile_create(proj)
         args.projectile = proj.name
+    if args.types
+        for type in *args.types
+            add_cooldown_multiplier args, () =>
+                return 1 - EffectUtils.get_power(@, type) * 0.03
     Data.spell_create(args)
 
 projectile_create = (args, for_enemy = false) -> 
-    damage_multiplier = args.damage_multiplier or 1.0
-    damage = damage_multiplier * (args.cooldown / 60 * STANDARD_WEAPON_DPS)
-    if for_enemy
-        -- For enemies, we want all damage to come from 'damage'.
-        -- The strength and magic stats work differently for enemies thusly.
-        args.power or= {base: {0, 0}}
-        args.damage or= {base: {0, 0}, strength: args.damage_type.physical, magic: args.damage_type.magic}
-    else
-        --damage = damage_multiplier * (args.cooldown / 60 * args.damage)
-        args.damage or= {base: {math.floor(damage), math.ceil(damage)}, strength: 0}
-        args.power or= {base: {0, 0}, strength: args.damage_type.physical, magic: args.damage_type.magic}
+    if args.cooldown
+        damage_multiplier = args.damage_multiplier or 1.0
+        damage = damage_multiplier * (args.cooldown / 60 * STANDARD_WEAPON_DPS)
+        if for_enemy
+            -- For enemies, we want all damage to come from 'damage'.
+            -- The strength and magic stats work differently for enemies thusly.
+            args.power or= {base: {0, 0}}
+            args.damage or= {base: {0, 0}, strength: args.damage_type.physical, magic: args.damage_type.magic}
+        else
+            --damage = damage_multiplier * (args.cooldown / 60 * args.damage)
+            args.damage or= {base: {math.floor(damage), math.ceil(damage)}, strength: 0}
+            args.power or= {base: {0, 0}, strength: args.damage_type.physical, magic: args.damage_type.magic}
     args.spr_item or= "none"
     args.range or= 300
+    if args.types ~= nil
+        add_types args, args.types
     Data.projectile_create(args)
 
 enemy_create = (args) ->
@@ -149,6 +214,7 @@ enemy_create = (args) ->
         w.name or= args.name .. " Melee"
         w.type or= "unarmed"
         w.spr_item or= "none"
+        w.types or= args.types
         append args.stats.attacks, {weapon: w.name}
         weapon_create(w, true)
     p = args.projectile
@@ -156,7 +222,13 @@ enemy_create = (args) ->
         p.name or= args.name .. " Projectile"
         p.spr_item or= "none"
         append args.stats.attacks, {projectile: p.name}
+        p.types or= args.types
         projectile_create(p, true)
+    if args.resistances == nil and args.types ~= nil
+        args.resistances = EffectUtils.get_monster_resistances(args.types)
+    if args.resistances ~= nil
+        args.effects_active or= {}
+        resistance_effects(args.resistances, args.effects_active)
     Data.enemy_create(args)
 
-return {:additive_effect_create, :effect_create, :weapon_create, :spell_create, :projectile_create, :enemy_create}
+return {:additive_effect_create, :effect_create, :weapon_create, :spell_create, :projectile_create, :enemy_create, :resistance_effects, :power_effects, :add_types}
