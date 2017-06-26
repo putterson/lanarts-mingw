@@ -51,6 +51,8 @@
 //	- placebo implementation, does nothing.
 //
 #if   defined(BACKWARD_SYSTEM_LINUX)
+#undef BACKWARD_SYSTEM_LINUX // Windows hack
+#define BACKWARD_SYSTEM_UNKNOWN
 #elif defined(BACKWARD_SYSTEM_UNKNOWN)
 #else
 #	if defined(__linux)
