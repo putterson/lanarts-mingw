@@ -61,91 +61,8 @@ void IOState::clear_for_step(bool resetprev) {
 
 	sdl_events.clear();
 }
-//
-//static void bind_key_events(std::vector<IOEventTrigger>& bindings,
-//		const char* keys, IOGameAction::event_t ev, SDL_Keymod required, SDL_Keymod rejected,
-//		bool allow_heldkey) {
-//	for (int i = 0; keys[i] != '\0'; i++) {
-//		IOGameAction event(ev, i);
-//		IOEventTrigger trigger(event, IOEventTrigger::NONE, SDL_Keycode(keys[i]),
-//				required, rejected, allow_heldkey);
-//		bindings.push_back(trigger);
-//	}
-//}
-IOController::IOController() {
-//	//XXX: For now we hardcode the specific actions
-//	SDL_Keymod item_mod = SDL_Keymod(KMOD_LCTRL | KMOD_RCTRL);
-//
-//	// Spell choice
-//	bind_key_events(event_bindings, "yuiopjkl", IOGameAction::ACTIVATE_SPELL_N,
-//			KMOD_NONE, KMOD_NONE, true);
-////	bind_key_events(event_bindings, "12345", IOGameAction::ACTIVATE_SPELL_N,
-////			KMOD_NONE, item_mod/*rejected*/, true);
-//
-////	// Item choice
-////	bind_key_events(event_bindings, "yuiop67890", IOGameAction::USE_ITEM_N, item_mod,
-////			KMOD_NONE, false);
-//	bind_key_events(event_bindings, "1234567890", IOGameAction::USE_ITEM_N,
-//			KMOD_NONE, item_mod/*rejected*/, false);
-//	bind_key_events(event_bindings, "1234567890", IOGameAction::SELL_ITEM_N,
-//	        item_mod/*requisite*/, KMOD_NONE, false);
-//
-//
-//	/*Scroll spell up*/
-//	{
-//		IOGameAction event(IOGameAction::TOGGLE_ACTION_UP);
-//		IOEventTrigger trigger1(event, IOEventTrigger::MOUSE_WHEEL_UP,
-//				SDL_Keycode(0), KMOD_NONE, KMOD_NONE, true);
-//		IOEventTrigger trigger2(event, IOEventTrigger::NONE, SDL_Keycode('e'),
-//				KMOD_NONE, KMOD_NONE);
-//		IOEventTrigger trigger3(event, IOEventTrigger::NONE, SDL_Keycode('.'),
-//				KMOD_NONE, KMOD_NONE);
-//		event_bindings.push_back(trigger1);
-//		event_bindings.push_back(trigger2);
-//		event_bindings.push_back(trigger3);
-//	}
-//	/*Scroll spell down*/
-//	{
-//		IOGameAction event(IOGameAction::TOGGLE_ACTION_DOWN);
-//		IOEventTrigger trigger1(event, IOEventTrigger::MOUSE_WHEEL_DOWN,
-//				SDL_Keycode(0), KMOD_NONE, KMOD_NONE, true);
-//		IOEventTrigger trigger2(event, IOEventTrigger::NONE, SDL_Keycode('q'),
-//				KMOD_NONE, KMOD_NONE);
-//		IOEventTrigger trigger3(event, IOEventTrigger::NONE, SDL_Keycode(','),
-//				KMOD_NONE, KMOD_NONE);
-//		event_bindings.push_back(trigger1);
-//		event_bindings.push_back(trigger2);
-//		event_bindings.push_back(trigger3);
-//	}
-//	/*Use weapon*/
-//	{
-//		IOGameAction event(IOGameAction::USE_WEAPON);
-//		IOEventTrigger trigger1(event, IOEventTrigger::MOUSE_MIDDLE_CLICK,
-//				SDL_Keycode(0), KMOD_NONE, KMOD_NONE, true);
-//		IOEventTrigger trigger2(event, IOEventTrigger::NONE, SDL_Keycode('h'),
-//				KMOD_NONE, KMOD_NONE, true);
-//		IOEventTrigger trigger3(event, IOEventTrigger::NONE, SDL_Keycode('t'),
-//				KMOD_NONE, KMOD_NONE, true);
-//		event_bindings.push_back(trigger1);
-//		event_bindings.push_back(trigger2);
-//		event_bindings.push_back(trigger3);
-//	}
-//
-//	/*Do autotarget action */
-//	{
-//		IOGameAction event(IOGameAction::AUTOTARGET_CURRENT_ACTION);
-//		IOEventTrigger trigger(event, IOEventTrigger::NONE, SDLK_SPACE,
-//				KMOD_NONE, KMOD_NONE, true);
-//		event_bindings.push_back(trigger);
-//	}
-//
-//	/*Do targetted action */{
-//		IOGameAction event(IOGameAction::MOUSETARGET_CURRENT_ACTION);
-//		IOEventTrigger trigger(event, IOEventTrigger::MOUSE_LEFT_CLICK,
-//				SDL_Keycode(0), KMOD_NONE, KMOD_NONE, true);
-//		event_bindings.push_back(trigger);
-//	}
 
+IOController::IOController() {
     reinit_controllers();
 }
 
@@ -156,6 +73,7 @@ void IOController::reinit_controllers() {
 	iostate.gamepad_states.clear();
 	for(int joystick_idx=0; joystick_idx < num_joysticks; ++joystick_idx)
 	{
+		printf("Initial Joystick Detected ID: %i\n",  joystick_idx);
 		if (!SDL_IsGameController(joystick_idx))
 		{
 			continue;
@@ -279,10 +197,12 @@ int IOController::handle_event(SDL_Event* event) {
 		break;
 	}
 	case SDL_CONTROLLERDEVICEADDED: {
+                printf("IOController::handle_event CONTROLLER ADDED\n");
         reinit_controllers();
 		break;
 	}
 	case SDL_CONTROLLERDEVICEREMOVED: {
+                printf("IOController::handle_event CONTROLLER REMOVED\n");
         reinit_controllers();
 		break;
 	}

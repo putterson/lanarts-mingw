@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 cmake_minimum_required( VERSION 2.6 )
 PROJECT(project_lanarts)
 
@@ -9,7 +8,7 @@ set( LIBS ../libs)
 set( DEPS ../dependencies)
 set( BUILTDEPS ${CMAKE_BINARY_DIR}/dependencies )
 
-add_definitions( -std=c++11 -Wno-deprecated-declarations)
+add_definitions( -std=c++14 -Wno-deprecated-declarations)
 
 if (${USE_BACKTRACE})
     set( BACKTRACE_LIBRARIES bfd )
@@ -131,7 +130,6 @@ set (libraries
         UnitTest++
         SDL2-static
         SDL2-image
-        SDL2-static
         #SDL2-mixer
                 /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_mixer.dll.a
         #        /usr/i686-w64-mingw32/sys-root/mingw/lib/libSDL2_image.dll.a

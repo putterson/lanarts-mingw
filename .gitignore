@@ -27,3 +27,4 @@ build_release_luajit/
 .idea
 cmake-build*
 .directory
+mingw32-build/
